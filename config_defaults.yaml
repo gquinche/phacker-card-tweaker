@@ -1,0 +1,36 @@
+# P-Hacker Card-Art Tweaker — default config
+# Tweak sliders in the app, export this file, paste back to commit canonical values.
+
+palette:
+  SIG: "#426183"    # EFFECT band + chart ink
+  NULL: "#767676"   # NO EFFECT band + chart ink
+
+# CMYK starting values for PDF export (0-100 each: C, M, Y, K)
+cmyk:
+  effect:    [50, 26, 0, 49]    # blue  #426183
+  no_effect: [ 0,  0, 0, 54]   # gray  #767676
+
+hatch:
+  bar:   ["///", "|||"]   # control=forward-diagonal, treatment=vertical
+  box:   ["///", "+++"]   # control=forward-diagonal, treatment=plus-cross
+  gauss: "/"              # Group B (dashed bell) only; Group A stays clean
+
+hatch_lw: 2.2      # global hatch stroke weight (matplotlib rcParam)
+dpi: 150           # rasterisation DPI for preview renders
+seeds_per_type: 2  # chart variants per type (2 = 20 cards/finding)
+band_pct: 20       # band height as % of card height
+
+# synthetic_control cloud params
+syn:
+  periods: 20
+  intervention: 10
+  placebos: 12
+  sigma: 0.23
+  lw: 1.3
+  alpha: 0.15
+  effect_lw: 1.8
+  sig_sigma: 0.15
+  null_sigma: 0.23
+  toe: 0.1
+  div_min: 1.0
+  div_max: 1.5
