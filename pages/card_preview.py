@@ -1,0 +1,73 @@
+"""Card Preview — the full real-card-look gallery: every chart type, both
+findings, rendered through the exact same HTML/CSS template used by the
+print PDF (lib/card_render.py). This is the page to check "does this match
+the real game" against phacker-game's DataCardPrint.tsx / game-cards.css.
+"""
+from __future__ import annotations
+
+import streamlit as st
+import streamlit.components.v1 as components
+
+from lib import card_render
+from lib import chart_generators as cg
+from lib.card_render import render_preview_html
+from lib.colors import cmyk_to_hex
+
+st.title("🃏 Card Preview")
+st.caption(
+    "Every chart type at the real card size/band/opacity — the same template that feeds the "
+    "print PDF, just rendered with hex colors here since browsers don't understand device-cmyk()."
+)
+
+cfg = st.session_state.cfg
+
+with st.sidebar:
+    st.subheader("Card composite")
+    cfg["card"]["paper"] = st.selectbox(
+        "Paper stock", ["cream", "white", "manila"],
+        ["cream", "white", "manila"].index(cfg["card"]["paper"]),
+    )
+    cfg["band_pct"] = st.slider("Band height %", 14, 30, int(cfg["band_pct"]), 1)
+    cfg["card"]["chart_opacity"] = st.slider(
+        "Chart opacity", 0.1, 1.0, float(cfg["card"]["chart_opacity"]), 0.05,
+        help="Real shipped value is 0.45 — the chart is background texture, not the focal point.",
+    )
+    wc1, wc2 = st.columns(2)
+    with wc1:
+        cfg["card"]["wash_alpha_sig"] = st.slider("Wash alpha (TRUE)", 0.0, 0.4, float(cfg["card"]["wash_alpha_sig"]), 0.01)
+    with wc2:
+        cfg["card"]["wash_alpha_null"] = st.slider("Wash alpha (FALSE)", 0.0, 0.4, float(cfg["card"]["wash_alpha_null"]), 0.01)
+    cfg["card"]["show_footer"] = st.checkbox("Show typewriter footer (n=/p=)", cfg["card"]["show_footer"])
+    cfg["card"]["show_stamp"] = st.checkbox("Show bureau stamp", cfg["card"]["show_stamp"])
+    cfg["card"]["show_creases"] = st.checkbox("Show fold creases", cfg["card"]["show_creases"])
+    size = st.radio("Card size", ["verdict", "hand"], horizontal=True,
+                     help="verdict = 140x190px (publication blotter) · hand = 220x300px (hand strip)")
+
+e_hex = cmyk_to_hex(*cfg["cmyk"]["effect"])
+n_hex = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
+
+
+@st.fragment
+def gallery():
+    seed = st.number_input("Seed (same seed used for every chart type below)", 0, 9999, 0, 1)
+    cards_html = []
+    for name in cg.all_chart_names():
+        svg_t = cg.render_svg(name, True, int(seed), cfg, e_hex)
+        svg_f = cg.render_svg(name, False, int(seed), cfg, n_hex)
+        cards_html.append(card_render.render_card_html(
+            card_id=f"{name}-T", significant=True, chart_svg=svg_t, cfg=cfg, size=size))
+        cards_html.append(card_render.render_card_html(
+            card_id=f"{name}-F", significant=False, chart_svg=svg_f, cfg=cfg, size=size))
+    html = render_preview_html(cards_html, cfg, gap_px=14)
+    card_h = 300 if size == "hand" else 190
+    components.html(html, height=card_h + 80, scrolling=True)
+
+
+gallery()
+
+st.divider()
+st.caption(
+    "Cross-check against the real component: src/components/game/DataCardPrint.tsx + "
+    "src/styles/game-cards.css (.print-card family) on gquinche/phacker-game, branch "
+    "experiment/simplified-ui."
+)
