@@ -116,9 +116,7 @@ chart_params:
 # quick-preview numbers).
 card:
   paper: cream              # cream | white | manila
-  chart_opacity: 0.45       # real .print-card__chart opacity
-  wash_alpha_sig: 0.18      # real .print-card--significant wash alpha
-  wash_alpha_null: 0.16     # real .print-card--null wash alpha
+  chart_opacity: 0.6        # real .print-card__chart opacity (simplified-ui)
   show_footer: true
   show_stamp: true
   show_creases: true

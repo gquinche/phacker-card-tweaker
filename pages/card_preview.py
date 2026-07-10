@@ -21,21 +21,7 @@ st.caption(
 cfg = st.session_state.cfg
 
 with st.sidebar:
-    st.subheader("Card composite")
-    cfg["card"]["paper"] = st.selectbox(
-        "Paper stock", ["cream", "white", "manila"],
-        ["cream", "white", "manila"].index(cfg["card"]["paper"]),
-    )
-    cfg["band_pct"] = st.slider("Band height %", 14, 30, int(cfg["band_pct"]), 1)
-    cfg["card"]["chart_opacity"] = st.slider(
-        "Chart opacity", 0.1, 1.0, float(cfg["card"]["chart_opacity"]), 0.05,
-        help="Real shipped value is 0.45 — the chart is background texture, not the focal point.",
-    )
-    wc1, wc2 = st.columns(2)
-    with wc1:
-        cfg["card"]["wash_alpha_sig"] = st.slider("Wash alpha (TRUE)", 0.0, 0.4, float(cfg["card"]["wash_alpha_sig"]), 0.01)
-    with wc2:
-        cfg["card"]["wash_alpha_null"] = st.slider("Wash alpha (FALSE)", 0.0, 0.4, float(cfg["card"]["wash_alpha_null"]), 0.01)
+    st.subheader("Card Preview")
     cfg["card"]["show_footer"] = st.checkbox("Show typewriter footer (n=/p=)", cfg["card"]["show_footer"])
     cfg["card"]["show_stamp"] = st.checkbox("Show bureau stamp", cfg["card"]["show_stamp"])
     cfg["card"]["show_creases"] = st.checkbox("Show fold creases", cfg["card"]["show_creases"])
