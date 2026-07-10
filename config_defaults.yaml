@@ -1,36 +1,136 @@
-# P-Hacker Card-Art Tweaker — default config
-# Tweak sliders in the app, export this file, paste back to commit canonical values.
+# P-Hacker Card Tweaker — default config.
+#
+# Tune values in the app, export this file, and back it up into
+# gquinche/phacker-game under tools/card-art/ (e.g. as a sibling to
+# fake_charts_cardart.py) so the notebook / bake_card_svgs.py pipeline picks
+# up the same numbers. `palette` / `hatch` keys deliberately mirror the real
+# repo's PALETTE / HATCH dicts in fake_charts_cardart.py and the notebook's
+# "TWEAK HERE" cell so copying values across is a straight lift. `chart_params`
+# is this tool's own addition (every chart type tunable, not just
+# synthetic_control) — see lib/chart_params.py; port whichever numbers you
+# like back into the chart function bodies by hand.
 
 palette:
-  SIG: "#426183"    # EFFECT band + chart ink
-  NULL: "#767676"   # NO EFFECT band + chart ink
+  SIG: "#426183"    # EFFECT/TRUE band + chart ink
+  NULL: "#767676"   # NO EFFECT/FALSE band + chart ink
 
-# CMYK starting values for PDF export (0-100 each: C, M, Y, K)
+# CMYK ink recipe — hand this to the litografía, and it's also what the PDF
+# export writes directly into the file via CSS device-cmyk() (WeasyPrint
+# >=67). 0-100 each: C, M, Y, K.
 cmyk:
-  effect:    [50, 26, 0, 49]    # blue  #426183
-  no_effect: [ 0,  0, 0, 54]   # gray  #767676
+  effect:    [50, 26, 0, 49]    # -> #426183
+  no_effect: [ 0,  0, 0, 54]    # -> #767676
 
 hatch:
   bar:   ["///", "|||"]   # control=forward-diagonal, treatment=vertical
   box:   ["///", "+++"]   # control=forward-diagonal, treatment=plus-cross
-  gauss: "/"              # Group B (dashed bell) only; Group A stays clean
+  gauss: "/"               # Group B (dashed bell) only; Group A stays clean
 
-hatch_lw: 2.2      # global hatch stroke weight (matplotlib rcParam)
-dpi: 150           # rasterisation DPI for preview renders
-seeds_per_type: 2  # chart variants per type (2 = 20 cards/finding)
-band_pct: 20       # band height as % of card height
+hatch_lw: 2.2       # global hatch stroke weight (matplotlib rcParam)
+dpi: 150            # rasterization DPI for gallery/thumbnail PNG renders
+seeds_per_type: 2   # chart variants per type (2 = 20 cards/finding, matches shipped count)
+band_pct: 20        # band height as % of card height (verdict-size real card is ~20%)
+precolor: true      # bake the finding hex directly into exported SVGs (the
+                     # game's own notebook calls this "recommended" — the
+                     # alternative, currentColor + runtime recolor, is what
+                     # it explicitly calls "the complexity we're trying to
+                     # retire"). Kept here as a toggle for exporting either way.
 
-# synthetic_control cloud params
-syn:
-  periods: 20
-  intervention: 10
-  placebos: 12
-  sigma: 0.23
-  lw: 1.3
-  alpha: 0.15
-  effect_lw: 1.8
-  sig_sigma: 0.15
-  null_sigma: 0.23
-  toe: 0.1
-  div_min: 1.0
-  div_max: 1.5
+# Per-chart tunable params (sample sizes, effect-size ranges, noise
+# levels) -- one sub-block per chart type, generated from
+# lib/chart_params.CHART_PARAM_SCHEMAS defaults. This is what lets every
+# chart (not just synthetic_control) be dialed in from the Chart Lab page --
+# e.g. km_curve restored here specifically so its decline-rate ranges and
+# resolution can be tuned into something that reads as general science
+# texture, rather than dropping the chart type outright.
+chart_params:
+  bar_chart:
+    sig_control: [3.0, 5.0]
+    sig_treatment: [7.0, 10.0]
+    sig_err: [0.3, 0.8]
+    null_base: [4.0, 7.0]
+    null_jitter: 0.5
+    null_err: [1.0, 2.5]
+  scatter_plot:
+    n: [35, 70]
+    sig_slope: [0.6, 1.2]
+    sig_noise: 0.35
+    null_noise: 1.0
+  scatter_plot_2:
+    n: [40, 80]
+    sig_slope: [0.5, 1.5]
+    sig_noise: 1.2
+    null_noise: 2.5
+  gaussian_curves:
+    sig_mu_a: -2.0
+    sig_mu_b: 2.4
+    sig_sigma: [0.6, 0.85]
+    null_mu_a: [-1.0, -0.7]
+    null_gap: [1.4, 1.9]
+    null_sigma: [1.35, 1.7]
+  box_plot:
+    n: [30, 80]
+    sig_a_center: 3.0
+    sig_b_center: 6.5
+    sig_spread: 0.8
+    null_center: [3.0, 6.0]
+    null_offset: 0.3
+    null_spread: 1.5
+  gap_chart:
+    pre_noise: 0.18
+    sig_effect: [1.4, 2.6]
+    sig_post_noise: 0.12
+    null_post_noise: 0.22
+  synthetic_control: {periods: 20, intervention: 10, placebos: 12, sigma: 0.23, lw: 1.3,
+    alpha: 0.15, effect_lw: 1.8, sig_sigma: 0.15, null_sigma: 0.23, toe: 0.1, div_min: 1.0,
+    div_max: 1.5}
+  forest_plot:
+    n: [6, 9]
+    sig_center: [0.45, 1.5]
+    null_center: [-0.35, 0.35]
+    err: [0.15, 0.5]
+  did_parallel_trends:
+    slope: [0.12, 0.22]
+    c0: [0.8, 1.2]
+    gap0: [1.4, 1.9]
+    sig_divergence: [1.0, 1.7]
+    null_noise: 0.05
+  event_study:
+    pre_noise: 0.06
+    sig_effect: [1.3, 2.0]
+    sig_noise: 0.05
+    sig_err_pre: [0.16, 0.26]
+    sig_err_post: [0.16, 0.3]
+    null_noise: 0.1
+    null_err: [0.22, 0.4]
+  km_curve:
+    t_max: 10
+    n_points: 44
+    sig_rate_a: [0.12, 0.2]
+    sig_rate_b: [0.5, 0.7]
+    null_rate: [0.28, 0.4]
+    null_jitter: [0.92, 1.08]
+
+# Real-card-look composite (mirrors src/styles/game-cards.css .print-card
+# exactly — these are the SHIPPED values, not the notebook's rougher
+# quick-preview numbers).
+card:
+  paper: cream              # cream | white | manila
+  chart_opacity: 0.45       # real .print-card__chart opacity
+  wash_alpha_sig: 0.18      # real .print-card--significant wash alpha
+  wash_alpha_null: 0.16     # real .print-card--null wash alpha
+  show_footer: true
+  show_stamp: true
+  show_creases: true
+
+# Print atlas / PDF export.
+print:
+  card_w_mm: 41.27
+  card_h_mm: 57.79
+  bleed_mm: 3.0
+  cols: 4
+  rows: 4
+  page: A4_portrait         # A4_portrait | A4_landscape | letter_portrait | letter_landscape
+  use_cmyk: true            # write device-cmyk() colors into the PDF (needs weasyprint>=67)
+  show_calibration_strip: false
+  show_card_id: true
