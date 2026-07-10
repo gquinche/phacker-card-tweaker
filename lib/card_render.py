@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 
-from .colors import cmyk_to_hex, hex_to_rgba_css
+from .colors import cmyk_to_hex
 from .config_io import PAGE_SIZES_MM
 from .pseudo_stats import footer_text
 
@@ -75,7 +75,7 @@ CARD_CSS = """
 .tw-card {{
   position: relative;
   background: {paper_hex};
-  border-radius: 4px;
+  border-radius: 12px;                    /* matches simplified-ui --card-radius */
   border: 1px solid {paper_edge};
   box-shadow: 0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,240,0.55);
   display: flex;
@@ -88,7 +88,7 @@ CARD_CSS = """
     radial-gradient(ellipse 40% 40% at 0% 100%, rgba(140,110,60,0.30), transparent 70%),
     radial-gradient(ellipse 40% 40% at 100% 100%, rgba(140,110,60,0.25), transparent 70%);
 }}
-.tw-card--hand {{ width: 220px; min-height: 300px; }}
+.tw-card--hand {{ width: 234px; min-height: 327px; }}    /* simplified-ui: 1.5× base portrait */
 .tw-card--verdict {{ width: 140px; min-height: 190px; }}
 .tw-card--print {{ width: {print_w}mm; height: {print_h}mm; min-height: 0; }}
 
@@ -98,6 +98,8 @@ CARD_CSS = """
 .tw-card__band {{ position:relative; z-index:1; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding: 4px 6px; }}
 .tw-card--hand .tw-card__band, .tw-card--print .tw-card__band {{ height: {band_h_hand}; }}
 .tw-card--verdict .tw-card__band {{ height: {band_h_verdict}; }}
+/* simplified-ui: hand band label is 1.08rem (1.5× base) */
+.tw-card--hand .tw-card__band-label {{ font-size: 1.08rem; }}
 
 .tw-card__band-label {{
   font-family: {print_font_stack};
@@ -106,7 +108,6 @@ CARD_CSS = """
 }}
 
 .tw-card__plot {{ position:relative; z-index:1; flex:1; display:flex; padding: 6px 8px 8px; background: {paper_hex}; overflow: hidden; }}
-.tw-card__wash {{ position:absolute; inset:0; background: {wash_css}; z-index: 0; }}
 .tw-card__chart {{ position:relative; z-index:1; flex:1; width:100%; display:flex; opacity: {chart_opacity}; }}
 .tw-card__chart svg {{ width:100%; height:100%; display:block; }}
 
@@ -134,7 +135,8 @@ _PDF_TYPED = "'DejaVu Sans Mono', 'Courier New', monospace"
 
 def _css_for(cfg: dict, target: str) -> str:
     paper = PAPER_STOCKS.get(cfg["card"]["paper"], PAPER_STOCKS["cream"])
-    band_h_hand = "44px" if target == "preview" else f'{cfg["print"]["card_h_mm"] * cfg["band_pct"] / 100:.2f}mm'
+    # simplified-ui: hand band = 66px (1.5× the 44px base), verdict = 38px
+    band_h_hand = "66px" if target == "preview" else f'{cfg["print"]["card_h_mm"] * cfg["band_pct"] / 100:.2f}mm'
     return CARD_CSS.format(
         paper_hex=paper["hex"],
         paper_edge=paper["edge"],
@@ -144,7 +146,6 @@ def _css_for(cfg: dict, target: str) -> str:
         band_h_hand=band_h_hand,
         band_h_verdict="38px",
         chart_opacity=cfg["card"]["chart_opacity"],
-        wash_css="none",  # per-card wash is set inline (depends on significant/null)
         print_w=cfg["print"]["card_w_mm"],
         print_h=cfg["print"]["card_h_mm"],
     )
@@ -162,18 +163,13 @@ def render_card_html(
     """Build ONE `.tw-card` element's markup (no surrounding <html>/<style> —
     callers wrap N of these with `_css_for()` once per page/preview)."""
     ink = ink_css_color(cfg, significant, target)
-    wash_alpha = cfg["card"]["wash_alpha_sig"] if significant else cfg["card"]["wash_alpha_null"]
     if target == "pdf" and cfg["print"].get("use_cmyk", True):
         # Cascade the CMYK ink into the chart's baked-hex SVG via currentColor.
         finding_hex = cfg["palette"]["SIG"] if significant else cfg["palette"]["NULL"]
         chart_svg = recolor_svg_to_currentcolor(chart_svg, finding_hex)
         chart_style = f'color: {ink};'
-        wash_css = ink  # device-cmyk() has no alpha channel; wash uses opacity below instead
-        wash_opacity = wash_alpha
     else:
         chart_style = ""
-        wash_css = hex_to_rgba_css_or_pass(ink, wash_alpha)
-        wash_opacity = 1.0
 
     label = "TRUE" if significant else "FALSE"
     band_class = "significant" if significant else "null"
@@ -203,7 +199,6 @@ def render_card_html(
     <span class="tw-card__band-label">{label}</span>
   </div>
   <div class="tw-card__plot">
-    <div class="tw-card__wash" style="background: {wash_css}; opacity: {wash_opacity};"></div>
     <div class="tw-card__chart" style="{chart_style}">{chart_svg}</div>
   </div>
   {footer_html}
@@ -211,15 +206,6 @@ def render_card_html(
   {id_html}
 </div>
 """.strip()
-
-
-def hex_to_rgba_css_or_pass(color: str, alpha: float) -> str:
-    """color is a hex string in preview mode (device-cmyk() never reaches here
-    for the wash — pdf mode passes the flat ink through `opacity` instead,
-    since device-cmyk() has no built-in alpha component)."""
-    if color.startswith("#"):
-        return hex_to_rgba_css(color, alpha)
-    return color
 
 
 def render_preview_html(cards_html: list[str], cfg: dict, gap_px: int = 18) -> str:

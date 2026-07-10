@@ -36,6 +36,24 @@ with st.sidebar:
 
     st.divider()
 
+    # Paper stock + card chrome — global controls, visible from every page
+    st.subheader("🃏 Card Chrome")
+    cfg = st.session_state.cfg
+    cfg["card"]["paper"] = st.selectbox(
+        "Paper stock", ["cream", "white", "manila"],
+        ["cream", "white", "manila"].index(cfg["card"]["paper"]),
+    )
+    cfg["band_pct"] = st.slider("Band height %", 14, 30, int(cfg["band_pct"]), 1)
+    cfg["card"]["chart_opacity"] = st.slider(
+        "Chart opacity", 0.1, 1.0, float(cfg["card"]["chart_opacity"]), 0.05,
+        help="Real shipped value is 0.6 — the chart is background texture, not the focal point.",
+    )
+    cfg["card"]["show_footer"] = st.checkbox("Typewriter footer (n=/p=)", cfg["card"]["show_footer"])
+    cfg["card"]["show_stamp"] = st.checkbox("Bureau stamp", cfg["card"]["show_stamp"])
+    cfg["card"]["show_creases"] = st.checkbox("Fold creases", cfg["card"]["show_creases"])
+
+    st.divider()
+
 pages = [
     st.Page("pages/chart_lab.py", title="Chart Lab", icon="📊", default=True),
     st.Page("pages/card_preview.py", title="Card Preview", icon="🃏"),
