@@ -73,8 +73,8 @@ n_hex = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
 
 @st.cache_data(show_spinner=False)
 def _svg_pool(seeds_per_type: int, cfg_fingerprint: str, e_hex_: str, n_hex_: str):
-    sig = [cg.render_svg(name, True, s, cfg, e_hex_) for name in cg.all_chart_names() for s in range(seeds_per_type)]
-    nul = [cg.render_svg(name, False, s, cfg, n_hex_) for name in cg.all_chart_names() for s in range(seeds_per_type)]
+    sig = [cg.render_svg_bare(name, True, s, cfg, e_hex_) for name in cg.all_chart_names() for s in range(seeds_per_type)]
+    nul = [cg.render_svg_bare(name, False, s, cfg, n_hex_) for name in cg.all_chart_names() for s in range(seeds_per_type)]
     return sig, nul
 
 

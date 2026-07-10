@@ -51,8 +51,8 @@ def gallery():
     seed = st.number_input("Seed (same seed used for every chart type below)", 0, 9999, 0, 1)
     cards_html = []
     for name in cg.all_chart_names():
-        svg_t = cg.render_svg(name, True, int(seed), cfg, e_hex)
-        svg_f = cg.render_svg(name, False, int(seed), cfg, n_hex)
+        svg_t = cg.render_svg_bare(name, True, int(seed), cfg, e_hex)
+        svg_f = cg.render_svg_bare(name, False, int(seed), cfg, n_hex)
         cards_html.append(card_render.render_card_html(
             card_id=f"{name}-T", significant=True, chart_svg=svg_t, cfg=cfg, size=size))
         cards_html.append(card_render.render_card_html(
