@@ -6,7 +6,6 @@ the real game" against phacker-game's DataCardPrint.tsx / game-cards.css.
 from __future__ import annotations
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from lib import card_render
 from lib import chart_generators as cg
@@ -60,7 +59,7 @@ def gallery():
             card_id=f"{name}-F", significant=False, chart_svg=svg_f, cfg=cfg, size=size))
     html = render_preview_html(cards_html, cfg, gap_px=14)
     card_h = 300 if size == "hand" else 190
-    components.html(html, height=card_h + 80, scrolling=True)
+    st.iframe(html, height=card_h + 80)
 
 
 gallery()

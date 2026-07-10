@@ -47,7 +47,7 @@ game's actual CSS) — so tuning a value in the preview told you nothing
 reliable about the print output. `lib/card_render.py` now renders **one**
 HTML/CSS card (`.tw-card`, deliberately named to echo the real
 `.print-card` family in `src/styles/game-cards.css`) that both the live
-preview (`st.components.v1.html`, a real browser) and the PDF (WeasyPrint)
+preview (`st.iframe`, a real browser) and the PDF (WeasyPrint)
 consume. Layout, proportions, band %, chart opacity, and wash alpha are
 identical between the two. The **only** thing that differs by target is how
 color is *expressed*:
@@ -131,7 +131,7 @@ WeasyPrint needs system libraries (Pango/Cairo/GDK-Pixbuf) that
 `packages.txt` installs automatically on Streamlit Community Cloud. Locally:
 
 - **macOS**: `brew install pango cairo gdk-pixbuf libffi`
-- **Debian/Ubuntu**: `sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info`
+- **Debian/Ubuntu**: `sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info` (package name varies by release — if `apt-get` says a package "has no installation candidate," check what it suggests as a replacement; `libgdk-pixbuf2.0-0` was renamed to `libgdk-pixbuf-2.0-0` in newer Debian/Ubuntu, which is what broke this on Streamlit Community Cloud once already)
 - **Windows**: see [WeasyPrint's install docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#windows) (GTK3 runtime).
 
 If those aren't installed, everything except the "Generate PDF" button still
