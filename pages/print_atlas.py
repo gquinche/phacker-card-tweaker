@@ -10,7 +10,6 @@ no browser understands device-cmyk() but WeasyPrint does.
 from __future__ import annotations
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from lib import chart_generators as cg
 from lib.card_render import build_pdf_bytes, render_print_atlas_html
@@ -105,7 +104,7 @@ def atlas_preview():
         f'<div style="transform:scale({zoom / 100});transform-origin:top left;'
         f'background:#2a2825;padding:20px;">{printable}</div>'
     )
-    components.html(scaled, height=int(page_h * 3.78 * zoom / 100) + 120, scrolling=True)
+    st.iframe(scaled, height=int(page_h * 3.78 * zoom / 100) + 120)
 
 
 atlas_preview()

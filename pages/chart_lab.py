@@ -11,7 +11,6 @@ staying dropped for looking too clinical.
 from __future__ import annotations
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from lib import card_render
 from lib import chart_generators as cg
@@ -125,7 +124,7 @@ def chart_panel(name: str):
         card_true = card_render.render_card_html(card_id=f"{name}-T", significant=True, chart_svg=svg_true, cfg=cfg)
         card_false = card_render.render_card_html(card_id=f"{name}-F", significant=False, chart_svg=svg_false, cfg=cfg)
         html = render_preview_html([card_true, card_false], cfg)
-        components.html(html, height=340, scrolling=False)
+        st.iframe(html, height=340)
 
 
 chart_panel(chart_name)
