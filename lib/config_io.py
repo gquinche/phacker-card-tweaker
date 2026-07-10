@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+from .chart_params import default_chart_params
+
 DEFAULTS_PATH = Path(__file__).resolve().parent.parent / "config_defaults.yaml"
 
 FALLBACK_CONFIG: dict = {
@@ -29,11 +31,11 @@ FALLBACK_CONFIG: dict = {
     "seeds_per_type": 2,
     "band_pct": 20,
     "precolor": True,
-    "syn": {
-        "periods": 20, "intervention": 10, "placebos": 12, "sigma": 0.23,
-        "lw": 1.3, "alpha": 0.15, "effect_lw": 1.8, "sig_sigma": 0.15,
-        "null_sigma": 0.23, "toe": 0.1, "div_min": 1.0, "div_max": 1.5,
-    },
+    # Per-chart-type tunable params (sample sizes, effect-size ranges, noise
+    # levels) — one sub-dict per chart in lib/chart_params.CHART_PARAM_SCHEMAS.
+    # This replaces the old top-level `syn` key, which only covered
+    # synthetic_control; every chart type is tunable now.
+    "chart_params": default_chart_params(),
     "card": {
         "paper": "cream",           # cream | white | manila
         "chart_opacity": 0.45,      # real shipped .print-card__chart opacity

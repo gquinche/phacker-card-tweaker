@@ -81,8 +81,9 @@ def _svg_pool(seeds_per_type: int, cfg_fingerprint: str, e_hex_: str, n_hex_: st
 
 # Cheap fingerprint so the cache invalidates when chart-affecting params change
 # (cache key must be hashable; cfg itself has nested lists/dicts so we don't
-# pass it directly).
-_fingerprint = f"{cfg['hatch']}{cfg['hatch_lw']}{cfg['syn']}{cfg['dpi']}"
+# pass it directly). chart_params covers every chart type now, not just
+# synthetic_control's old `syn` dict.
+_fingerprint = f"{cfg['hatch']}{cfg['hatch_lw']}{cfg['chart_params']}{cfg['dpi']}"
 sig_svgs, null_svgs = _svg_pool(int(cfg["seeds_per_type"]), _fingerprint, e_hex, n_hex)
 
 

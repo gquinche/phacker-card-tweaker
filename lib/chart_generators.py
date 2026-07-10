@@ -2,42 +2,37 @@
 "science texture" charts.
 
 This is a from-parity port of tools/card-art/fake_charts_cardart.py in the
-phacker-game repo, reconciled with the hatch-only-fill decision (2026-07-09):
-fills use matplotlib `hatch=` patterns with `facecolor="none"`, never a flat
-alpha wash, so the printed card doesn't flood ink. bar_chart / box_plot /
+phacker-game repo (branch experiment/simplified-ui — trunk is stale for card
+art), reconciled with the hatch-only-fill decision (2026-07-09): fills use
+matplotlib `hatch=` patterns with `facecolor="none"`, never a flat alpha
+wash, so the printed card doesn't flood ink. bar_chart / box_plot /
 gaussian_curves are the only chart types with area fills; everything else
 (scatter, gap, forest, synthetic_control, km_curve, did_parallel_trends,
 event_study) is lines/markers only, so hatching doesn't apply to them.
 
-Chart type coverage note: km_curve (Kaplan-Meier survival) exists in the
-real phacker-game generator but had been dropped from this tweaker's earlier
-copy — restored here for full parity (11 chart types total).
+Every chart's "shape" numbers (sample sizes, effect-size ranges, noise
+levels) come from `cfg["chart_params"][chart_name]` (see lib/chart_params.py
+for the schema + defaults) rather than being hardcoded — that's what lets
+pages/chart_lab.py expose a tuning control for every chart type, not just
+synthetic_control's old `syn` dict.
 
-Each generator has the signature:
-    fn(significant: bool, rng: np.random.Generator, cfg: dict, ink_hex: str) -> matplotlib.figure.Figure
+Color rule (corrected 2026-07-10, per Alejandro): the only real constraint
+is that a chart's finding-color elements always come from the `ink`
+parameter passed in — i.e. whatever's actually configured for that finding
+in cfg["palette"] / cfg["cmyk"] — never from a hardcoded gray constant that
+would silently ignore a palette change. There is no per-SVG pixel-scanning
+requirement; a chart is free to mix that finding ink with a separate fixed
+decorative gray (DIM_GRAY, used below for things like a placebo cloud or an
+axis guide line that's meant to look muted regardless of finding) — mixing
+tones like that is normal and doesn't need to "match" anything. gap_chart
+and synthetic_control both draw their primary line in `ink` unconditionally
+(for both findings) simply so the null-finding line tracks a NULL palette
+change instead of staying frozen on DIM_GRAY.
 
-`cfg` is the loaded YAML config (see config_defaults.yaml) — hatch choices,
-the synthetic_control cloud params, etc. all come from there so the whole
-pool can be re-tuned without touching this file.
-
-Output: callers get a live matplotlib Figure and decide the export format
-(SVG for true-fidelity card/print rendering, PNG for cheap gallery thumbnails)
-via render_svg() / render_png() below — the figure itself is only built once.
-
-Chart-type coverage note (corrected against tools/card-art on
-experiment/simplified-ui, 2026-07-09 — trunk is stale): 10 chart types, NOT
-11. km_curve (Kaplan-Meier) was deliberately DROPPED — "reads as
-medical-specific, not general science texture" — do not reintroduce it.
-
-Color rule for gap_chart and synthetic_control specifically: always draw the
-primary line/effect in the finding ink color, even when significant=False.
-Other chart types (scatter, box, bar) already keep at least one element
-(edgecolor) in the finding hex regardless of significance. This is not a
-stylistic choice — the game's own bake pipeline runs an automated "colour
-parity test" that scans each stored SVG for the expected finding hex and
-fails the bake if a null-finding chart has zero pixels of that hex (all
-lines/fills dimmed to gray). Dimming the WHOLE chart for null findings would
-silently break that check.
+Chart registry: km_curve (Kaplan-Meier) was dropped upstream in phacker-game
+("reads as medical-specific, not general science texture") but is restored
+here, fully parameterized, since that's a tuning problem, not a reason to
+drop the chart type — see lib/chart_params.py.
 """
 
 from __future__ import annotations
@@ -52,8 +47,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
+from .chart_params import CHART_PARAM_SCHEMAS
+
 # ── style constants (not finding-dependent) ─────────────────────────────────
-DIM_GRAY = "#8C8C8C"      # secondary/dim ink — never the finding color itself
+DIM_GRAY = "#8C8C8C"      # fixed decorative gray — never a finding color substitute
 GRID_WARM = "#C9C2B4"     # aged-paper grid tone (warmer than a neutral gray)
 BG_WHITE = "#FFFFFF"
 
@@ -92,19 +89,30 @@ def _setup_axes(ax, ink_hex: str, grid_axis: str = "y") -> None:
     ax.grid(axis=grid_axis, color=GRID_WARM, linewidth=0.55, linestyle=":")
 
 
+def _p(cfg: dict, name: str) -> dict:
+    """This chart's tunable-params sub-dict, falling back to schema defaults
+    for any key missing from an older/partial cfg (mirrors config_io's own
+    deep-merge safety net at the per-chart level)."""
+    params = cfg.get("chart_params", {}).get(name, {})
+    schema = CHART_PARAM_SCHEMAS[name]
+    return {k: params.get(k, spec[5]) for k, spec in schema.items()}
+
+
 # ── individual chart generators ─────────────────────────────────────────────
 
 def gen_bar_chart(sig, rng, cfg, ink):
+    p = _p(cfg, "bar_chart")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink)
     hatch = cfg["hatch"]["bar"]
     if sig:
-        vals = [rng.uniform(3, 5), rng.uniform(7, 10)]
-        errs = [rng.uniform(0.3, 0.8), rng.uniform(0.3, 0.8)]
+        vals = [rng.uniform(*p["sig_control"]), rng.uniform(*p["sig_treatment"])]
+        errs = [rng.uniform(*p["sig_err"]), rng.uniform(*p["sig_err"])]
     else:
-        base = rng.uniform(4, 7)
-        vals = [base + rng.uniform(-0.5, 0.5), base + rng.uniform(-0.5, 0.5)]
-        errs = [rng.uniform(1.0, 2.5), rng.uniform(1.0, 2.5)]
+        base = rng.uniform(*p["null_base"])
+        j = p["null_jitter"]
+        vals = [base + rng.uniform(-j, j), base + rng.uniform(-j, j)]
+        errs = [rng.uniform(*p["null_err"]), rng.uniform(*p["null_err"])]
     bars = ax.bar(["Control", "Tratamiento"], vals, yerr=errs,
                    color=["none", "none"], edgecolor=ink, linewidth=0.75,
                    width=0.52, capsize=3,
@@ -116,13 +124,14 @@ def gen_bar_chart(sig, rng, cfg, ink):
 
 
 def gen_scatter_plot(sig, rng, cfg, ink):
+    p = _p(cfg, "scatter_plot")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink, "both")
-    n = rng.integers(35, 70)
+    n = rng.integers(p["n"][0], p["n"][1] + 1)
     x = rng.normal(0, 1, n)
     fc = ink if sig else DIM_GRAY
-    y = (rng.uniform(0.6, 1.2) * rng.choice([-1, 1]) * x + rng.normal(0, 0.35, n)) if sig \
-        else rng.normal(0, 1, n)
+    y = (rng.uniform(*p["sig_slope"]) * rng.choice([-1, 1]) * x + rng.normal(0, p["sig_noise"], n)) if sig \
+        else rng.normal(0, p["null_noise"], n)
     ax.scatter(x, y, s=12, facecolors=fc, edgecolors=ink, linewidths=0.35, alpha=0.9)
     z = np.polyfit(x, y, 1)
     ax.plot(np.sort(x), np.polyval(z, np.sort(x)), color=ink, linewidth=1.0, linestyle=(0, (4, 3)))
@@ -132,13 +141,14 @@ def gen_scatter_plot(sig, rng, cfg, ink):
 
 
 def gen_scatter_plot_2(sig, rng, cfg, ink):
+    p = _p(cfg, "scatter_plot_2")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink, "both")
-    n = rng.integers(40, 80)
+    n = rng.integers(p["n"][0], p["n"][1] + 1)
     x = rng.uniform(0, 10, n)
     fc = ink if sig else DIM_GRAY
-    y = (rng.uniform(0.5, 1.5) * rng.choice([-1, 1]) * (x - 5) + rng.normal(0, 1.2, n)) if sig \
-        else rng.normal(0, 2.5, n)
+    y = (rng.uniform(*p["sig_slope"]) * rng.choice([-1, 1]) * (x - 5) + rng.normal(0, p["sig_noise"], n)) if sig \
+        else rng.normal(0, p["null_noise"], n)
     ax.scatter(x, y, s=12, facecolors=fc, edgecolors=ink, linewidths=0.35, alpha=0.9)
     z = np.polyfit(x, y, 1)
     xs = np.linspace(x.min(), x.max(), 100)
@@ -149,17 +159,18 @@ def gen_scatter_plot_2(sig, rng, cfg, ink):
 
 
 def gen_gaussian_curves(sig, rng, cfg, ink):
+    p = _p(cfg, "gaussian_curves")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink, "both")
     gauss_hatch = cfg["hatch"]["gauss"]
     x = np.linspace(-5, 8, 300)
     if sig:
-        mu_a, mu_b = -2.0, 2.4
-        sigma = rng.uniform(0.6, 0.85)
+        mu_a, mu_b = p["sig_mu_a"], p["sig_mu_b"]
+        sigma = rng.uniform(*p["sig_sigma"])
     else:
-        mu_a = rng.uniform(-1.0, -0.7)
-        mu_b = mu_a + rng.uniform(1.4, 1.9)
-        sigma = rng.uniform(1.35, 1.7)
+        mu_a = rng.uniform(*p["null_mu_a"])
+        mu_b = mu_a + rng.uniform(*p["null_gap"])
+        sigma = rng.uniform(*p["null_sigma"])
 
     def gauss(mu, s):
         return np.exp(-0.5 * ((x - mu) / s) ** 2) / (s * np.sqrt(2 * np.pi))
@@ -178,17 +189,19 @@ def gen_gaussian_curves(sig, rng, cfg, ink):
 
 
 def gen_box_plot(sig, rng, cfg, ink):
+    p = _p(cfg, "box_plot")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink)
     hatch = cfg["hatch"]["box"]
-    n = rng.integers(30, 80)
+    n = rng.integers(p["n"][0], p["n"][1] + 1)
     if sig:
-        a = rng.normal(3, 0.8, n)
-        b = rng.normal(6.5, 0.8, n)
+        a = rng.normal(p["sig_a_center"], p["sig_spread"], n)
+        b = rng.normal(p["sig_b_center"], p["sig_spread"], n)
     else:
-        c = rng.uniform(3, 6)
-        a = rng.normal(c, 1.5, n)
-        b = rng.normal(c + rng.uniform(-0.3, 0.3), 1.5, n)
+        center = rng.uniform(*p["null_center"])
+        off = p["null_offset"]
+        a = rng.normal(center, p["null_spread"], n)
+        b = rng.normal(center + rng.uniform(-off, off), p["null_spread"], n)
     bp = ax.boxplot([a, b], tick_labels=["Control", "Tratamiento"], patch_artist=True,
                      widths=0.42,
                      medianprops={"color": ink, "linewidth": 1.2},
@@ -204,21 +217,21 @@ def gen_box_plot(sig, rng, cfg, ink):
 
 
 def gen_gap_chart(sig, rng, cfg, ink):
+    p = _p(cfg, "gap_chart")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink, "both")
-    # Always the finding hex (not dimmed for null) — see module docstring:
-    # the null/significant distinction here comes from the DATA SHAPE (does
-    # the post-period diverge from zero or not), not from color. Keeps the
-    # finding hex present in the baked SVG for the color-parity test.
+    # Always the actual configured finding ink (blue when significant, the
+    # configured NULL tone when not) — never a hardcoded gray constant that
+    # would ignore a palette change. See module docstring.
     color = ink
     pre_t = np.arange(-8, 0)
     post_t = np.arange(0, 8)
-    pre_vals = rng.normal(0, 0.18, len(pre_t))
+    pre_vals = rng.normal(0, p["pre_noise"], len(pre_t))
     if sig:
-        effect_size = rng.uniform(1.4, 2.6)
-        post_vals = np.linspace(0.1, effect_size, len(post_t)) + rng.normal(0, 0.12, len(post_t))
+        effect_size = rng.uniform(*p["sig_effect"])
+        post_vals = np.linspace(0.1, effect_size, len(post_t)) + rng.normal(0, p["sig_post_noise"], len(post_t))
     else:
-        post_vals = rng.normal(0, 0.22, len(post_t))
+        post_vals = rng.normal(0, p["null_post_noise"], len(post_t))
     ax.axvline(x=0, color=DIM_GRAY, linewidth=0.9, linestyle=":")
     ax.axhline(y=0, color=GRID_WARM, linewidth=0.75)
     kw = dict(color=color, linewidth=1.25, marker="s", markersize=3.5,
@@ -231,20 +244,25 @@ def gen_gap_chart(sig, rng, cfg, ink):
 
 
 def gen_synthetic_control(sig, rng, cfg, ink):
+    p = _p(cfg, "synthetic_control")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     _setup_axes(ax, ink, "both")
-    syn = cfg["syn"]
-    periods, iv = int(syn["periods"]), int(syn["intervention"])
+    periods, iv = int(p["periods"]), int(p["intervention"])
     t = np.arange(periods)
-    for _ in range(int(syn["placebos"])):
-        ax.plot(t, rng.normal(0, syn["sigma"], periods),
-                color=DIM_GRAY, linewidth=syn["lw"], linestyle="-", alpha=syn["alpha"])
+    for _ in range(int(p["placebos"])):
+        # Placebo cloud: intentionally a fixed decorative gray regardless of
+        # finding — it's noise texture, not something carrying finding
+        # semantics, so it doesn't need to track the palette. See module docstring.
+        ax.plot(t, rng.normal(0, p["sigma"], periods),
+                color=DIM_GRAY, linewidth=p["lw"], linestyle="-", alpha=p["alpha"])
     if sig:
-        effect = rng.normal(0, syn["sig_sigma"], periods)
-        effect[iv:] -= np.linspace(syn["toe"], rng.uniform(syn["div_min"], syn["div_max"]), periods - iv)
+        effect = rng.normal(0, p["sig_sigma"], periods)
+        effect[iv:] -= np.linspace(p["toe"], rng.uniform(p["div_min"], p["div_max"]), periods - iv)
     else:
-        effect = rng.normal(0, syn["null_sigma"], periods)
-    ax.plot(t, effect, color=ink, linewidth=syn["effect_lw"], linestyle="-", zorder=5)
+        effect = rng.normal(0, p["null_sigma"], periods)
+    # Effect line: always the actual configured finding ink (see gap_chart's
+    # comment above — same reasoning).
+    ax.plot(t, effect, color=ink, linewidth=p["effect_lw"], linestyle="-", zorder=5)
     ax.axvline(x=iv, color=DIM_GRAY, linewidth=0.6, linestyle=(0, (4, 3)))
     ax.axhline(y=0, color=GRID_WARM, linewidth=0.6)
     ylim = ax.get_ylim()
@@ -256,11 +274,12 @@ def gen_synthetic_control(sig, rng, cfg, ink):
 
 
 def gen_forest_plot(sig, rng, cfg, ink):
+    p = _p(cfg, "forest_plot")
     fig, ax = plt.subplots(figsize=FIGSIZE)
-    n = int(rng.integers(6, 9))
+    n = int(rng.integers(p["n"][0], p["n"][1] + 1))
     ys = np.arange(n)[::-1]
-    centers = rng.uniform(0.45, 1.5, n) * rng.choice([-1, 1]) if sig else rng.uniform(-0.35, 0.35, n)
-    err = rng.uniform(0.15, 0.5, n)
+    centers = rng.uniform(*p["sig_center"], n) * rng.choice([-1, 1]) if sig else rng.uniform(*p["null_center"], n)
+    err = rng.uniform(*p["err"], n)
     ax.axvline(0, color=DIM_GRAY, linewidth=0.9, linestyle=(0, (4, 3)))
     for y, cx, e in zip(ys, centers, err):
         ax.plot([cx - e, cx + e], [y, y], color=ink, linewidth=1.3)
@@ -271,20 +290,49 @@ def gen_forest_plot(sig, rng, cfg, ink):
     return fig
 
 
+def gen_km_curve(sig, rng, cfg, ink):
+    """Kaplan-Meier survival curves — two step functions (diverge if
+    significant, stay together if null). Restored + fully parameterized
+    (t_max, resolution, decline-rate ranges) so it can be dialed into
+    something that reads as general science texture rather than a clinical
+    survival curve, instead of being dropped outright."""
+    p = _p(cfg, "km_curve")
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    _setup_axes(ax, ink, "y")
+    t = np.linspace(0, p["t_max"], int(p["n_points"]))
+
+    def surv(rate):
+        return np.exp(-rate * t)
+
+    if sig:
+        a = surv(rng.uniform(*p["sig_rate_a"]))
+        b = surv(rng.uniform(*p["sig_rate_b"]))
+    else:
+        r = rng.uniform(*p["null_rate"])
+        a = surv(r)
+        b = surv(r * rng.uniform(*p["null_jitter"]))
+    ax.step(t, a, where="post", color=ink, linewidth=1.5)
+    ax.step(t, b, where="post", color=ink, linewidth=1.5, linestyle=(0, (5, 3)))
+    ax.set_ylim(0, 1.03)
+    ax.set_yticks([])
+    return fig
+
+
 def gen_did_parallel_trends(sig, rng, cfg, ink):
+    p = _p(cfg, "did_parallel_trends")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     t = np.arange(0, 11)
     k = 5
-    slope = rng.uniform(0.12, 0.22)          # SAME slope both groups -> parallel pre-trend
-    c0 = rng.uniform(0.8, 1.2)
-    gap0 = rng.uniform(1.4, 1.9)
+    slope = rng.uniform(*p["slope"])          # SAME slope both groups -> parallel pre-trend
+    c0 = rng.uniform(*p["c0"])
+    gap0 = rng.uniform(*p["gap0"])
     control = c0 + slope * t + rng.normal(0, 0.04, len(t))
     treated_trend = (c0 + gap0) + slope * t
     treated = treated_trend.copy()
     if sig:
-        treated[k:] += np.linspace(0, rng.uniform(1.0, 1.7), len(t) - k)
+        treated[k:] += np.linspace(0, rng.uniform(*p["sig_divergence"]), len(t) - k)
     else:
-        treated = treated + rng.normal(0, 0.05, len(t))
+        treated = treated + rng.normal(0, p["null_noise"], len(t))
     ax.plot(t, control, color=ink, linewidth=1.4, marker="o",
             markersize=3.0, markerfacecolor="white", markeredgecolor=ink)
     ax.plot(t, treated, color=ink, linewidth=1.7, marker="s",
@@ -295,18 +343,19 @@ def gen_did_parallel_trends(sig, rng, cfg, ink):
 
 
 def gen_event_study(sig, rng, cfg, ink):
+    p = _p(cfg, "event_study")
     fig, ax = plt.subplots(figsize=FIGSIZE)
     pre = np.arange(-4, 0)
     post = np.arange(0, 6)
     periods = np.concatenate([pre, post])
-    pre_est = rng.normal(0, 0.06, len(pre))
+    pre_est = rng.normal(0, p["pre_noise"], len(pre))
     if sig:
         d = rng.choice([-1, 1])
-        post_est = d * np.linspace(0.25, rng.uniform(1.3, 2.0), len(post)) + rng.normal(0, 0.05, len(post))
-        err = np.concatenate([rng.uniform(0.16, 0.26, len(pre)), rng.uniform(0.16, 0.30, len(post))])
+        post_est = d * np.linspace(0.25, rng.uniform(*p["sig_effect"]), len(post)) + rng.normal(0, p["sig_noise"], len(post))
+        err = np.concatenate([rng.uniform(*p["sig_err_pre"], len(pre)), rng.uniform(*p["sig_err_post"], len(post))])
     else:
-        post_est = rng.normal(0, 0.10, len(post))
-        err = rng.uniform(0.22, 0.40, len(periods))
+        post_est = rng.normal(0, p["null_noise"], len(post))
+        err = rng.uniform(*p["null_err"], len(periods))
     est = np.concatenate([pre_est, post_est])
     ax.axhline(0, color=DIM_GRAY, linewidth=0.9)
     ax.axvline(-0.5, color=DIM_GRAY, linewidth=0.9, linestyle=(0, (4, 3)))
@@ -316,11 +365,8 @@ def gen_event_study(sig, rng, cfg, ink):
     return fig
 
 
-# name -> generator. Order + membership matches the real game's
-# CHART_GENERATORS registry on tools/card-art (experiment/simplified-ui):
-# bar, scatter, scatter_2, gaussian, box, gap, synthetic_control, forest,
-# did_parallel_trends, event_study. Exactly 10 — km_curve is deliberately
-# excluded (see module docstring).
+# name -> generator. km_curve restored (see module docstring) — 11 chart
+# types total.
 GENERATORS: list[tuple[str, callable]] = [
     ("bar_chart", gen_bar_chart),
     ("scatter_plot", gen_scatter_plot),
@@ -330,14 +376,12 @@ GENERATORS: list[tuple[str, callable]] = [
     ("gap_chart", gen_gap_chart),
     ("synthetic_control", gen_synthetic_control),
     ("forest_plot", gen_forest_plot),
+    ("km_curve", gen_km_curve),
     ("did_parallel_trends", gen_did_parallel_trends),
     ("event_study", gen_event_study),
 ]
 GENERATOR_NAMES = [n for n, _ in GENERATORS]
-
-# Weighted random selection (matches the real repo's _WEIGHTS — scatter
-# variants sampled more often). Index order must match GENERATORS above.
-GENERATOR_WEIGHTS = [1, 3, 3, 2, 1, 2, 2, 2, 2, 2]
+GENERATOR_WEIGHTS = [1, 3, 3, 2, 1, 2, 2, 2, 2, 2, 2]
 
 
 @contextmanager

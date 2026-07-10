@@ -23,14 +23,17 @@ pages/
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (WeasyPrint)
   config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
 lib/
-  chart_generators.py    the 10 chart-art generators (bar, scatter×2, gaussian, box, gap,
-                          synthetic_control, forest, did_parallel_trends, event_study) —
+  chart_generators.py    the 11 chart-art generators (bar, scatter×2, gaussian, box, gap,
+                          synthetic_control, forest, km_curve, did_parallel_trends, event_study) —
                           ported from tools/card-art/fake_charts_cardart.py
+  chart_params.py         per-chart tunable-param schemas (every chart, not just
+                          synthetic_control) — this is what pages/chart_lab.py renders controls from
   card_render.py          THE single card/atlas HTML+CSS template + the WeasyPrint PDF builder
   config_io.py            YAML load/save/merge, page-size table
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
-config_defaults.yaml     starting values — keys mirror the real repo's PALETTE/HATCH/SYN dicts
+config_defaults.yaml     starting values — `palette`/`hatch` keys mirror the real repo's dicts;
+                          `chart_params` is this tool's own addition, see below
 requirements.txt
 packages.txt              apt packages Streamlit Community Cloud installs for WeasyPrint
 ```
@@ -95,14 +98,28 @@ chart's ink via CSS inheritance (matplotlib itself has no CMYK concept, so
 this is how the faint chart texture — not just the band — ends up genuinely
 CMYK in the PDF too).
 
-### Chart registry — 10 types, not 11
+### Chart registry — 11 types, every one tunable
 
-`km_curve` (Kaplan-Meier) is deliberately **excluded** — the real repo
-dropped it 2026-07-09 ("reads as medical-specific, not general science
-texture"). `gap_chart` and `synthetic_control` always draw their primary
-line in the finding hex, even for null findings — the real bake pipeline
-runs an automated colour-parity test that fails if a null card has zero
-pixels of its expected hex, so dimming the whole chart for null isn't safe.
+The real repo's `fake_charts_cardart.py` dropped `km_curve` (Kaplan-Meier)
+2026-07-09 as "reads as medical-specific, not general science texture" — but
+that's a tuning problem, not a reason to drop the chart type, so it's
+restored here (`lib/chart_generators.gen_km_curve`) with its decline-rate
+ranges and resolution fully exposed in Chart Lab. More generally: every
+chart type used to hardcode its sample sizes / effect-size ranges / noise
+levels as Python literals, so only `synthetic_control` (via the old `syn`
+dict) could be dialed in from the UI at all. `lib/chart_params.py` now gives
+every chart type the same treatment — that's the actual fix for "this chart
+doesn't look decent," not dropping it.
+
+`gap_chart` and `synthetic_control` draw their primary line in the `ink`
+parameter unconditionally (for both findings) — that's simply "use whatever
+color is actually configured for this finding," not a hardcoded gray
+constant that would silently ignore a palette change. It's not a
+pixel-content requirement on the rendered SVG, and a chart mixing that ink
+with a separate fixed decorative gray (e.g. `synthetic_control`'s placebo
+cloud, which is meant to look muted regardless of finding) is completely
+fine — see the color-rule note in `lib/chart_generators.py`'s module
+docstring.
 
 ## Local setup
 
@@ -129,12 +146,19 @@ streamlit run app.py
 This tool never writes into `phacker-game` directly — export the YAML
 (sidebar, any page) and copy values by hand into:
 
-- `tools/card-art/fake_charts_cardart.py`'s `HATCH` / `SYN` module dicts, or
-  the notebook's tweak cell (`fc.HATCH.update(...)`, `fc.SYN.update(...)`).
+- `tools/card-art/fake_charts_cardart.py`'s `HATCH` module dict, or the
+  notebook's tweak cell (`fc.HATCH.update(...)`).
 - The notebook's `PALETTE` dict + `bake_card_svgs.py`'s `SIG`/`NULL`
   constants.
 - `src/styles/game-cards.css` for `band_pct` / chart opacity / wash alpha,
   if you change those from the shipped defaults.
+- `chart_params` (every non-hatch/non-`syn` number in every chart function)
+  has **no existing counterpart in phacker-game** — those were hardcoded
+  literals there. If a tuned value is worth keeping, hand-edit the matching
+  literal in the chart's function body in `fake_charts_cardart.py`; there's
+  no dict to paste into yet. Worth raising with whoever owns that file if
+  you find yourself doing this a lot — it'd be a small refactor to make it
+  read a params dict the same way this tool does.
 
 Re-run the notebook's bake + parity-test cells after pasting values in, same
 as always.

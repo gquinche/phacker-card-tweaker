@@ -1,6 +1,12 @@
 """Chart Lab — tune each chart type's params; see the raw chart AND the real
 card look for both findings side by side. The live-render panel is an
 @st.fragment so tuning one chart type doesn't force a full-page rerun.
+
+Every chart type has its own tunable-params panel, rendered generically from
+lib/chart_params.CHART_PARAM_SCHEMAS — not just synthetic_control. That's
+what lets km_curve (restored — see lib/chart_generators.py module docstring)
+get dialed into something that reads as general science texture instead of
+staying dropped for looking too clinical.
 """
 from __future__ import annotations
 
@@ -10,6 +16,7 @@ import streamlit.components.v1 as components
 from lib import card_render
 from lib import chart_generators as cg
 from lib.card_render import render_preview_html
+from lib.chart_params import CHART_PARAM_SCHEMAS, cast_value
 from lib.colors import cmyk_to_hex
 
 st.title("📊 Chart Lab")
@@ -73,23 +80,32 @@ with st.sidebar:
 chart_name = st.selectbox("Chart type", cg.all_chart_names(), key="lab_chart_name")
 
 
+def _render_param_controls(name: str, key_prefix: str) -> None:
+    """Generic per-chart params panel, driven by CHART_PARAM_SCHEMAS — every
+    chart type gets one of these, not just synthetic_control."""
+    schema = CHART_PARAM_SCHEMAS.get(name)
+    if not schema:
+        return
+    params = cfg["chart_params"].setdefault(name, {})
+    st.caption(f"{name} params")
+    cols = st.columns(2)
+    for i, (key, (kind, dtype, lo, hi, step, default, label)) in enumerate(schema.items()):
+        lo_c, hi_c, step_c = cast_value(dtype, lo), cast_value(dtype, hi), cast_value(dtype, step)
+        current = params.get(key, default)
+        with cols[i % 2]:
+            if kind == "range":
+                cur = (cast_value(dtype, current[0]), cast_value(dtype, current[1]))
+                params[key] = list(st.slider(label, lo_c, hi_c, cur, step_c, key=f"{key_prefix}_{name}_{key}"))
+            else:
+                params[key] = st.slider(label, lo_c, hi_c, cast_value(dtype, current), step_c, key=f"{key_prefix}_{name}_{key}")
+
+
 @st.fragment
 def chart_panel(name: str):
     seed = st.number_input("Seed", 0, 9999, 0, 1, key=f"seed_{name}")
 
-    if name == "synthetic_control":
-        st.caption("Synthetic-control cloud params")
-        syn = cfg["syn"]
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            syn["placebos"] = st.slider("Placebos", 4, 30, int(syn["placebos"]), key=f"syn_p_{name}")
-            syn["intervention"] = st.slider("Intervention at t=", 5, 18, int(syn["intervention"]), key=f"syn_iv_{name}")
-        with c2:
-            syn["sigma"] = st.slider("sigma cloud", 0.05, 0.8, float(syn["sigma"]), 0.01, key=f"syn_s_{name}")
-            syn["alpha"] = st.slider("alpha cloud", 0.05, 0.5, float(syn["alpha"]), 0.01, key=f"syn_a_{name}")
-        with c3:
-            syn["effect_lw"] = st.slider("Effect line weight", 0.5, 4.0, float(syn["effect_lw"]), 0.1, key=f"syn_elw_{name}")
-            syn["sig_sigma"] = st.slider("sigma effect", 0.05, 0.5, float(syn["sig_sigma"]), 0.01, key=f"syn_ss_{name}")
+    with st.expander("Chart params", expanded=True):
+        _render_param_controls(name, "param")
 
     e_hex_local = cmyk_to_hex(*cfg["cmyk"]["effect"])
     n_hex_local = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
