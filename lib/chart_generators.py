@@ -402,13 +402,86 @@ def build_figure(name: str, significant: bool, seed: int, cfg: dict, ink_hex: st
 
 
 def render_svg(name: str, significant: bool, seed: int, cfg: dict, ink_hex: str) -> str:
-    """Render one chart straight to an SVG string (vector, crisp at any size,
-    what both the on-screen real-card preview and the print PDF embed)."""
+    """Render one chart to an SVG string with FULL matplotlib apparatus (axes,
+    spines, ticks, labels, legend — the "Chart Lab" diagnostic view)."""
     fig = build_figure(name, significant, seed, cfg, ink_hex)
     with _closing(fig):
         buf = io.StringIO()
         fig.savefig(buf, format="svg", bbox_inches="tight", pad_inches=0.05,
                     facecolor="white", metadata={"Date": None})
+        return buf.getvalue()
+
+
+def render_svg_bare(name: str, significant: bool, seed: int, cfg: dict, ink_hex: str) -> str:
+    """Render one chart to SVG stripped of ALL axis infrastructure — no spines,
+    no ticks, no labels, no text, no legend, no grid, thickened lines.
+    Mirrors tools/card-art/bake_card_backgrounds.py's fig_to_bg() exactly:
+    the chart becomes pure "science texture", matching the in-game card look."""
+    from matplotlib.collections import PathCollection
+
+    fig = build_figure(name, significant, seed, cfg, ink_hex)
+    with _closing(fig):
+        for ax in fig.axes:
+            # Strip all axis apparatus
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+            ax.set_title("")
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            lg = ax.get_legend()
+            if lg is not None:
+                lg.remove()
+            for txt in list(ax.texts):
+                txt.remove()
+            ax.grid(False)
+            ax.margins(0.05)
+
+            # Thicken lines — mirrored from bake_card_backgrounds.py dotty() +
+            # the faint-vs-bold line-boosting rules
+            def _dotty(ls):
+                if ls in (":", "dotted"):
+                    return True
+                if isinstance(ls, tuple) and ls[1]:
+                    return min(ls[1]) <= 2
+                return False
+
+            for ln in ax.lines:
+                ls = ln.get_linestyle()
+                lw = ln.get_linewidth()
+                a = ln.get_alpha()
+                if _dotty(ls):
+                    ln.set_linestyle("-")
+                faint = (lw <= 0.7) or (a is not None and a < 0.55)
+                if faint:
+                    ln.set_linewidth(1.3)
+                    if a is not None:
+                        ln.set_alpha(min(a, 0.5))
+                else:
+                    ln.set_linewidth(max(lw * 2.4, 3.2))
+
+            for c in ax.collections:
+                if isinstance(c, PathCollection):
+                    s = c.get_sizes()
+                    if len(s):
+                        c.set_sizes(s * 3.0)
+                    c.set_linewidth(1.4)
+                else:
+                    try:
+                        c.set_linewidth(2.2)
+                    except Exception:
+                        pass
+
+            for p in ax.patches:
+                try:
+                    p.set_linewidth(2.6)
+                except Exception:
+                    pass
+
+        buf = io.StringIO()
+        fig.savefig(buf, format="svg", bbox_inches="tight", pad_inches=0.02,
+                    facecolor="none", transparent=True, metadata={"Date": None})
         return buf.getvalue()
 
 

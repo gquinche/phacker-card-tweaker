@@ -119,8 +119,8 @@ def chart_panel(name: str):
             st.image(cg.render_png(name, False, int(seed), cfg, n_hex_local), caption="FALSE", width="stretch")
     with card_col:
         st.caption("Real card look (same chart embedded in the actual print-card composite)")
-        svg_true = cg.render_svg(name, True, int(seed), cfg, e_hex_local)
-        svg_false = cg.render_svg(name, False, int(seed), cfg, n_hex_local)
+        svg_true = cg.render_svg_bare(name, True, int(seed), cfg, e_hex_local)
+        svg_false = cg.render_svg_bare(name, False, int(seed), cfg, n_hex_local)
         card_true = card_render.render_card_html(card_id=f"{name}-T", significant=True, chart_svg=svg_true, cfg=cfg)
         card_false = card_render.render_card_html(card_id=f"{name}-F", significant=False, chart_svg=svg_false, cfg=cfg)
         html = render_preview_html([card_true, card_false], cfg)
