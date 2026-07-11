@@ -43,6 +43,8 @@ st.markdown(
     "- **band_pct / chart_opacity / wash alphas** → `src/styles/game-cards.css` "
     "(`.print-card__band` height, `.print-card__chart` opacity, "
     "`.print-card--significant/--null .print-card__plot` wash alpha).\n"
+    "- **Card-back texture** → `public/patterns/` + `SealedCardBack.tsx` on "
+    "`experiment/simplified-ui`; this app embeds local copies for offline PDF output.\n"
     "- **Print card size / bleed / grid** → whatever you hand to the litografía "
     "alongside the exported PDF — this tool doesn't write into the game repo for you, "
     "by design, since these are print-shop-facing, not game-code values."

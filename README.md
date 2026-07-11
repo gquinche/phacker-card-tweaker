@@ -29,10 +29,12 @@ lib/
   chart_params.py         per-chart tunable-param schemas (every chart, not just
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
   card_render.py          THE single card/atlas HTML+CSS template + the WeasyPrint PDF builder
+  card_back_render.py     simplified-ui card backs from real SVG motifs, browser + PDF
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
+assets/card_backs/       real SVG motifs copied from phacker-game experiment/simplified-ui
 config_defaults.yaml     starting values — `palette`/`hatch` keys mirror the real repo's dicts;
                           `chart_params` is this tool's own addition, see below
 requirements.txt
@@ -56,6 +58,18 @@ differs by target is how color is *expressed*:
 
 - Preview → hex (`#426183`) — no browser understands CSS `device-cmyk()`.
 - PDF → `device-cmyk(50% 26% 0% 49%)` — written into the PDF as literal CMYK.
+
+### Real simplified-UI card backs
+
+The Card Back selector renders the actual motif assets from `gquinche/phacker-game`
+branch `experiment/simplified-ui`: stripe, chevron, argyle, hex lattice, scallop,
+contour, flow, and the experimental guilloche. `lib/card_back_render.py` ports the
+shared `SealedCardBack` cream stock, engraved frame, cartouche, numeral, and
+watermark treatment. Print Atlas can append one matching back sheet per front
+sheet for browser preview and PDF output.
+
+All motifs except guilloche are **Hero Patterns by Steve Schoger (CC BY 4.0)**.
+Guilloche was authored for P-Hacker. See `assets/card_backs/README.md`.
 
 ### Why WeasyPrint, and why CMYK actually works now
 

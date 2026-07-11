@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 
+from .card_back_render import card_back_css, card_back_label, render_card_back_html
 from .colors import cmyk_to_hex
 from .config_io import PAGE_SIZES_MM
 from .pseudo_stats import footer_text
@@ -235,9 +236,9 @@ def render_print_atlas_html(
     *,
     target: str = "pdf",
 ) -> str:
-    """Build the two-page atlas for either the browser preview or WeasyPrint.
+    """Build front sheets plus optional matching SVG card-back sheets.
 
-    Both targets share the same mm-based page, grid, card, and title layout.
+    Browser and PDF targets share the same mm-based page, grid, card, and title layout.
     Only color expression differs: preview uses browser-safe hex; PDF can use
     device-cmyk() and recolor baked SVG ink through currentColor.
     """
@@ -292,7 +293,41 @@ def render_print_atlas_html(
   {cal_strip}
 </section>"""
 
+    def build_back_page(copy_index: int) -> str:
+        n = cols * rows
+        token = cfg["card"].get("back_texture", "tex-chevron")
+        numeral = cfg["card"].get("back_numeral", "I")
+        cells = []
+        for i in range(n):
+            card_html = render_card_back_html(
+                cfg=cfg,
+                token=token,
+                size="print",
+                numeral=numeral,
+                card_id=f"B{copy_index}-{i:02d}" if p.get("show_card_id", True) else "",
+            )
+            cells.append(f'<div class="tw-cell">{card_html}</div>')
+        grid_w = cols * cell_w
+        grid_h = rows * cell_h
+        grid_left = (page_w - grid_w) / 2
+        grid_top = max((page_h - grid_h) / 2, 13.0)
+        header_top = max(2.0, grid_top - 11.0)
+        return f"""
+<section class="tw-page">
+  <header class="tw-atlas-header tw-atlas-header--back" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:#2b2b2b;">
+    <span class="tw-atlas-header__kicker">P-HACKER · RECORDS BUREAU</span>
+    <span class="tw-atlas-header__title">CARD BACKS</span>
+    <span class="tw-atlas-header__meta">{card_back_label(token).upper()} · {n} CARDS</span>
+  </header>
+  <div class="tw-grid" style="grid-template-columns: repeat({cols}, {cell_w:.2f}mm); grid-template-rows: repeat({rows}, {cell_h:.2f}mm); left:{grid_left:.2f}mm; top:{grid_top:.2f}mm;">
+    {''.join(cells)}
+  </div>
+</section>"""
+
     body = build_page(True, sig_svgs) + build_page(False, null_svgs)
+    if p.get("include_back_pages", True):
+        # One matching back sheet per front sheet for duplex/flip printing.
+        body += build_back_page(1) + build_back_page(2)
     font_import = _PREVIEW_FONT_IMPORT if target == "preview" else ""
     body_class = "tw-preview-stage" if target == "preview" else "tw-pdf-body"
 
@@ -365,6 +400,7 @@ body.tw-preview-stage .tw-page {{
 }}
 .tw-calstrip {{ position:absolute; bottom:0; left:0; right:0; display:flex; }}
 {_css_for(cfg, target)}
+{card_back_css(cfg, cfg["card"].get("back_texture", "tex-chevron"))}
 </style></head><body class="{body_class}">
 {body}
 </body></html>"""

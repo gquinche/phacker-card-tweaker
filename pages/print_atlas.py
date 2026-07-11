@@ -46,6 +46,7 @@ with st.sidebar:
     )
     st.checkbox("Calibration strip (for print-scale checks)", key="print_show_calibration_strip")
     st.checkbox("Card ID stamps", key="print_show_card_id")
+    st.checkbox("Include matching SVG card-back sheets", key="print_include_back_pages")
 
 # Collect after declaring the page-specific controls so this snapshot includes
 # exactly what the user sees in the widgets.
@@ -77,7 +78,7 @@ no_effect_svgs = [
 ]
 
 st.subheader("Paper preview")
-st.caption("White sheets are the physical paper area; dashed cells include each card's bleed.")
+st.caption("White sheets are the physical paper area; optional back sheets use the selected real-game SVG motif.")
 preview_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="preview")
 st.iframe(preview_html, height="content")
 
@@ -91,6 +92,7 @@ with col_info:
 | NO EFFECT ink | `{no_effect_hex}` (C{cfg['cmyk']['no_effect'][0]} M{cfg['cmyk']['no_effect'][1]} Y{cfg['cmyk']['no_effect'][2]} K{cfg['cmyk']['no_effect'][3]}) |
 | Card | {p['card_w_mm']}×{p['card_h_mm']} mm + {p['bleed_mm']}mm bleed |
 | Grid | {p['cols']}×{p['rows']} on {p['page'].replace('_', ' ')} |
+| Card back | `{cfg['card']['back_texture']}` · numeral {cfg['card']['back_numeral']} · {'included' if p['include_back_pages'] else 'not included'} |
 | Faces | {len(cg.all_chart_names())} chart types × {seed_count} seeds = {len(effect_svgs)} distinct cards/finding |
 """)
 with col_btn:

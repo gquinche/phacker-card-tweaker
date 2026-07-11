@@ -117,6 +117,8 @@ chart_params:
 card:
   paper: cream              # cream | white | manila
   chart_opacity: 0.6        # real .print-card__chart opacity (simplified-ui)
+  back_texture: tex-chevron # PhD fallback motif from experiment/simplified-ui
+  back_numeral: I           # deck cartouche I-V
   show_footer: false
   show_stamp: true
   show_creases: true
@@ -132,3 +134,4 @@ print:
   use_cmyk: true            # write device-cmyk() colors into the PDF (needs weasyprint>=67)
   show_calibration_strip: false
   show_card_id: true
+  include_back_pages: true  # append matching card-back sheets to preview/PDF

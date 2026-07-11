@@ -22,6 +22,8 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "card_paper": ("card", "paper"),
     "band_pct": ("band_pct",),
     "card_chart_opacity": ("card", "chart_opacity"),
+    "card_back_texture": ("card", "back_texture"),
+    "card_back_numeral": ("card", "back_numeral"),
     "card_show_footer": ("card", "show_footer"),
     "card_show_stamp": ("card", "show_stamp"),
     "card_show_creases": ("card", "show_creases"),
@@ -49,6 +51,7 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "print_use_cmyk": ("print", "use_cmyk"),
     "print_show_calibration_strip": ("print", "show_calibration_strip"),
     "print_show_card_id": ("print", "show_card_id"),
+    "print_include_back_pages": ("print", "include_back_pages"),
 }
 
 

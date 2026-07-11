@@ -5,6 +5,7 @@ import streamlit as st
 
 from lib import card_render
 from lib import chart_generators as cg
+from lib.card_back_render import render_card_back_preview_html
 from lib.card_render import render_preview_html
 from lib.editor_state import current_config
 
@@ -26,6 +27,20 @@ with st.sidebar:
 seed = st.number_input(
     "Seed (same seed used for every chart type below)", 0, 9999, 0, 1, key="preview_seed",
 )
+card_h = 327 if size == "hand" else 190
+
+st.subheader("Selected card back")
+st.iframe(
+    render_card_back_preview_html(
+        cfg,
+        cfg["card"]["back_texture"],
+        size,
+        cfg["card"]["back_numeral"],
+    ),
+    height=card_h + 40,
+)
+
+st.subheader("Card fronts")
 effect_hex = cfg["palette"]["SIG"]
 no_effect_hex = cfg["palette"]["NULL"]
 cards_html = []
@@ -39,7 +54,6 @@ for name in cg.all_chart_names():
         card_id=f"{name}-N", significant=False, chart_svg=svg_no_effect, cfg=cfg, size=size,
     ))
 
-card_h = 327 if size == "hand" else 190
 st.iframe(render_preview_html(cards_html, cfg, gap_px=14), height=card_h + 80)
 
 st.divider()
