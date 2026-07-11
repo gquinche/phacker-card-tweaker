@@ -58,6 +58,8 @@ FALLBACK_CONFIG: dict = {
         "show_calibration_strip": False,
         "show_card_id": True,
         "include_back_pages": True,
+        "round_corners": False,
+        "corner_radius_mm": 3.0,
         "strict_ink_check": True,
         "ink_policy": {
             "effect": ["C", "M", "K"],

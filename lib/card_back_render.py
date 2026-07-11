@@ -97,6 +97,13 @@ def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
         "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), "
         "inset 0 1px 0 rgba(255,255,255,0.55)"
     )
+    print_radius_mm = (
+        max(0.0, float(cfg["print"].get("corner_radius_mm", 3.0)))
+        if cfg["print"].get("round_corners", False)
+        else 0.0
+    )
+    print_radius = f"{print_radius_mm:.2f}mm" if print_radius_mm else "0"
+    print_inner_radius = f"{max(0.0, print_radius_mm - 1.0):.2f}mm" if print_radius_mm else "0"
     return f"""
 .tw-card-back {{
   position:relative;
@@ -109,7 +116,7 @@ def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
 }}
 .tw-card-back--hand {{ width:234px; height:327px; }}
 .tw-card-back--verdict {{ width:140px; height:190px; }}
-.tw-card-back--print {{ width:{print_w}mm; height:{print_h}mm; }}
+.tw-card-back--print {{ width:{print_w}mm; height:{print_h}mm; border-radius:{print_radius}; }}
 .tw-card-back::before {{
   content:''; position:absolute; inset:4px; z-index:1; pointer-events:none;
   border:0.8px solid {ink}; border-radius:10px;
@@ -118,6 +125,8 @@ def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
   content:''; position:absolute; inset:7px; z-index:1; pointer-events:none;
   border:0.6px solid {ink}; border-radius:9px;
 }}
+.tw-card-back--print::before,
+.tw-card-back--print::after {{ border-radius:{print_inner_radius}; }}
 .tw-card-back__pattern {{
   position:absolute; inset:0; z-index:0; pointer-events:none;
   background-image:url('{pattern_uri}');

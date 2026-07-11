@@ -55,6 +55,8 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "print_show_calibration_strip": ("print", "show_calibration_strip"),
     "print_show_card_id": ("print", "show_card_id"),
     "print_include_back_pages": ("print", "include_back_pages"),
+    "print_round_corners": ("print", "round_corners"),
+    "print_corner_radius_mm": ("print", "corner_radius_mm"),
     "print_strict_ink_check": ("print", "strict_ink_check"),
     "effect_allowed_channels": ("print", "ink_policy", "effect"),
     "no_effect_allowed_channels": ("print", "ink_policy", "no_effect"),

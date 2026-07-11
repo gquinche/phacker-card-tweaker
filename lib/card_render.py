@@ -81,7 +81,7 @@ CARD_CSS = """
 }}
 .tw-card--hand {{ width: 234px; height: 327px; min-height: 327px; }}    /* simplified-ui: 1.5× base portrait */
 .tw-card--verdict {{ width: 140px; height: 190px; min-height: 190px; }}
-.tw-card--print {{ width: {print_w}mm; height: {print_h}mm; min-height: 0; }}
+.tw-card--print {{ width: {print_w}mm; height: {print_h}mm; min-height: 0; border-radius: {print_radius}; }}
 
 .tw-card__crease--h {{ position:absolute; left:0; right:0; top:50%; height:1px; background: {crease_h}; z-index:0; }}
 .tw-card__crease--v {{ position:absolute; top:0; bottom:0; left:50%; width:1px; background: {crease_v}; z-index:0; }}
@@ -135,6 +135,11 @@ def _css_for(cfg: dict, target: str) -> str:
     # millimetres for both the browser atlas and the final PDF.
     band_h_hand = "66px"
     band_h_print = f'{cfg["print"]["card_h_mm"] * cfg["band_pct"] / 100:.2f}mm'
+    print_radius = (
+        f'{max(0.0, float(cfg["print"].get("corner_radius_mm", 3.0))):.2f}mm'
+        if cfg["print"].get("round_corners", False)
+        else "0"
+    )
     if is_pdf:
         card_shadow = "none"
         paper_texture = "none"
@@ -174,6 +179,7 @@ def _css_for(cfg: dict, target: str) -> str:
         chart_opacity=cfg["card"]["chart_opacity"],
         print_w=cfg["print"]["card_w_mm"],
         print_h=cfg["print"]["card_h_mm"],
+        print_radius=print_radius,
         card_shadow=card_shadow,
         paper_texture=paper_texture,
         crease_h=crease_h,

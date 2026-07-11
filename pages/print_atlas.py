@@ -40,6 +40,21 @@ with st.sidebar:
         st.number_input("Height (mm)", 40.0, 120.0, step=0.01, key="print_card_h_mm")
     st.number_input("Bleed (mm)", 0.0, 5.0, step=0.5, key="print_bleed_mm")
 
+    st.subheader("Cutting")
+    round_corners = st.checkbox(
+        "Render rounded corners in print",
+        key="print_round_corners",
+        help="Off keeps straight cut lines; round the finished cards later with a physical corner cutter.",
+    )
+    st.number_input(
+        "Corner radius (mm)",
+        0.5,
+        8.0,
+        step=0.5,
+        key="print_corner_radius_mm",
+        disabled=not round_corners,
+    )
+
     st.subheader("Color")
     st.checkbox(
         "Write true CMYK into the PDF (device-cmyk())", key="print_use_cmyk",
@@ -114,6 +129,7 @@ with col_info:
 | BACK ink | `{cfg['palette']['BACK']}` (C{cfg['cmyk']['back'][0]} M{cfg['cmyk']['back'][1]} Y{cfg['cmyk']['back'][2]} K{cfg['cmyk']['back'][3]}) |
 | Ink preflight | {'SAFE' if ink_audit['safe'] else 'BLOCKED'} |
 | Card | {p['card_w_mm']}×{p['card_h_mm']} mm + {p['bleed_mm']}mm bleed |
+| Print corners | {f"rounded · {p['corner_radius_mm']}mm" if p['round_corners'] else 'square · straight cut'} |
 | Grid | {p['cols']}×{p['rows']} on {p['page'].replace('_', ' ')} |
 | Card back | `{cfg['card']['back_texture']}` · neutral P seal · {'included' if p['include_back_pages'] else 'not included'} |
 | Faces | {len(cg.all_chart_names())} chart types × {seed_count} seeds = {len(effect_svgs)} distinct cards/finding |

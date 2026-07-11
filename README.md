@@ -79,6 +79,12 @@ front sheet for browser preview and PDF output.
 All motifs except guilloche are **Hero Patterns by Steve Schoger (CC BY 4.0)**.
 Guilloche was authored for P-Hacker. See `assets/card_backs/README.md`.
 
+### Physical corner finishing
+
+Print Atlas defaults to **square corners** on fronts and backs so every cut is a straight
+guillotine line. Rounded print geometry is optional, with a configurable millimetre radius;
+otherwise use a physical corner cutter after trimming. Game-size Card Preview remains rounded.
+
 ### Ink Lab and strict print preflight
 
 Ink Lab owns separate EFFECT, NO EFFECT, and BACK CMYK recipes. It provides exact

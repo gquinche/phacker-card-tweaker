@@ -136,6 +136,8 @@ print:
   show_calibration_strip: false
   show_card_id: true
   include_back_pages: true  # append matching card-back sheets to preview/PDF
+  round_corners: false      # square by default; finish later with a corner cutter
+  corner_radius_mm: 3.0     # used only when round_corners is enabled
   strict_ink_check: true    # block PDF when a page uses unapproved ink channels
   ink_policy:
     effect: [C, M, K]
