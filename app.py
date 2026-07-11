@@ -49,7 +49,7 @@ with st.sidebar:
     st.divider()
 
     st.subheader("🃏 Card Chrome")
-    st.selectbox("Paper stock", ["cream", "white", "manila"], key="card_paper")
+    st.selectbox("Paper stock", ["white", "cream", "manila"], key="card_paper")
     st.slider("Band height %", 14, 30, key="band_pct")
     st.slider(
         "Chart opacity", 0.1, 1.0, step=0.05, key="card_chart_opacity",

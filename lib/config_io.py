@@ -37,7 +37,7 @@ FALLBACK_CONFIG: dict = {
     # synthetic_control; every chart type is tunable now.
     "chart_params": default_chart_params(),
     "card": {
-        "paper": "cream",           # cream | white | manila
+        "paper": "white",           # white | cream | manila
         "chart_opacity": 0.6,
         "back_texture": "tex-chevron",
         "wash_alpha_sig": 0.18,     # real shipped .print-card--significant wash

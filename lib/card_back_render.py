@@ -10,6 +10,8 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+from .paper import paper_stock
+
 ASSET_DIR = Path(__file__).resolve().parent.parent / "assets" / "card_backs"
 
 CARD_BACK_OPTIONS: dict[str, dict[str, str]] = {
@@ -23,6 +25,7 @@ CARD_BACK_OPTIONS: dict[str, dict[str, str]] = {
     "tex-guilloche": {"label": "Experimental · Guilloche", "tier": "experimental"},
 }
 DEFAULT_CARD_BACK = "tex-chevron"
+ROMAN_NUMERALS = ("I", "II", "III", "IV", "V")
 SEAL_RING_TEXT = "DEPARTMENT OF REPRODUCIBILITY · DEPARTMENT OF REPRODUCIBILITY ·"
 
 
@@ -48,21 +51,35 @@ def pattern_data_uri(token: str, ink: str = "#2b2b2b") -> str:
     return f"data:image/svg+xml;base64,{encoded}"
 
 
-def bureau_seal_svg(uid: str = "seal", center_text: str = "P") -> str:
-    """B/W bureau seal adapted from the approved attached print prototype."""
+def bureau_seal_svg(
+    uid: str = "seal",
+    paper_hex: str = "#FFFFFF",
+    numeral: str = "",
+) -> str:
+    """B/W bureau seal; numerals are supported only for on-screen preview."""
     safe_uid = "".join(char if char.isalnum() else "-" for char in uid)
     ring_id = f"bureau-ring-{safe_uid}"
+    numeral = numeral if numeral in ROMAN_NUMERALS else ""
+    p_y = "43" if numeral else "52"
+    numeral_markup = (
+        f'<text x="50" y="66" font-family="Playfair Display, DejaVu Serif, Georgia, serif" '
+        f'font-weight="700" font-size="12" letter-spacing="1.2" text-anchor="middle" '
+        f'dominant-baseline="central" fill="#000">{numeral}</text>'
+        if numeral
+        else ""
+    )
     return f"""
 <svg class="tw-card-back__seal" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <path id="{ring_id}" d="M 50 50 m -36,0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"/>
   </defs>
-  <circle cx="50" cy="50" r="43" fill="#F2ECE0" stroke="#000" stroke-width="1.7"/>
+  <circle cx="50" cy="50" r="43" fill="{paper_hex}" stroke="#000" stroke-width="1.7"/>
   <circle cx="50" cy="50" r="34" fill="none" stroke="#000" stroke-width="0.9"/>
   <text font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="5.3" letter-spacing="0.36" fill="#000">
     <textPath href="#{ring_id}" startOffset="0">{SEAL_RING_TEXT}</textPath>
   </text>
-  <text x="50" y="52" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="34" text-anchor="middle" dominant-baseline="central" fill="#000">{center_text}</text>
+  <text x="50" y="{p_y}" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="34" text-anchor="middle" dominant-baseline="central" fill="#000">P</text>
+  {numeral_markup}
 </svg>
 """.strip()
 
@@ -70,6 +87,7 @@ def bureau_seal_svg(uid: str = "seal", center_text: str = "P") -> str:
 def card_back_css(cfg: dict, token: str) -> str:
     """CSS port of simplified-ui's sealed-card-back treatment."""
     pattern_uri = pattern_data_uri(token)
+    paper = paper_stock(cfg["card"]["paper"])
     print_w = cfg["print"]["card_w_mm"]
     print_h = cfg["print"]["card_h_mm"]
     return f"""
@@ -77,8 +95,8 @@ def card_back_css(cfg: dict, token: str) -> str:
   position:relative;
   overflow:hidden;
   background:
-    radial-gradient(ellipse at 50% 42%, rgba(255,250,235,0.55) 0%, rgba(242,236,224,0) 58%),
-    linear-gradient(160deg, #F5F0E4 0%, #F2ECE0 100%);
+    radial-gradient(ellipse at 50% 42%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 58%),
+    {paper["hex"]};
   border:2px solid #2b2b2b;
   border-radius:12px;
   box-shadow:0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,250,235,0.55);
@@ -119,11 +137,17 @@ def render_card_back_html(
     size: str = "verdict",
     card_id: str = "",
     uid: str = "",
+    preview_numeral: str = "",
 ) -> str:
-    """Render a neutral print-safe back: motif + identical P bureau seal."""
+    """Render a card back; preview numerals are never supplied by print pages."""
     resolved = _resolved_token(token)
     id_html = f'<span class="tw-card-back__id">{card_id}</span>' if card_id else ""
-    seal = bureau_seal_svg(uid=uid or card_id or "preview")
+    paper = paper_stock(cfg["card"]["paper"])
+    seal = bureau_seal_svg(
+        uid=uid or card_id or "preview",
+        paper_hex=paper["hex"],
+        numeral=preview_numeral,
+    )
     return f"""
 <div class="tw-card-back tw-card-back--{size}" data-texture="{resolved}">
   <div class="tw-card-back__pattern" aria-hidden="true"></div>
@@ -133,8 +157,18 @@ def render_card_back_html(
 """.strip()
 
 
-def render_card_back_preview_html(cfg: dict, token: str, size: str) -> str:
-    card = render_card_back_html(cfg=cfg, token=token, size=size)
+def render_card_back_preview_html(
+    cfg: dict,
+    token: str,
+    size: str,
+    numeral: str = "",
+) -> str:
+    card = render_card_back_html(
+        cfg=cfg,
+        token=token,
+        size=size,
+        preview_numeral=numeral,
+    )
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 * {{ box-sizing:border-box; }}
 body {{ margin:0; padding:16px; background:#d7d4ce; }}

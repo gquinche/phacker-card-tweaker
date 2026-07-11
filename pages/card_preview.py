@@ -5,7 +5,7 @@ import streamlit as st
 
 from lib import card_render
 from lib import chart_generators as cg
-from lib.card_back_render import render_card_back_preview_html
+from lib.card_back_render import ROMAN_NUMERALS, render_card_back_preview_html
 from lib.card_render import render_preview_html
 from lib.editor_state import current_config
 
@@ -23,6 +23,12 @@ with st.sidebar:
         "Card size", ["verdict", "hand"], horizontal=True, key="preview_card_size",
         help="verdict = 140x190px (publication blotter) · hand = 234x327px (hand strip)",
     )
+    preview_numeral = st.selectbox(
+        "Preview-only Roman numeral",
+        ["None", *ROMAN_NUMERALS],
+        key="preview_back_numeral",
+        help="Visual review only. Print/PDF backs always omit numerals.",
+    )
 
 seed = st.number_input(
     "Seed (same seed used for every chart type below)", 0, 9999, 0, 1, key="preview_seed",
@@ -35,6 +41,7 @@ st.iframe(
         cfg,
         cfg["card"]["back_texture"],
         size,
+        "" if preview_numeral == "None" else preview_numeral,
     ),
     height=card_h + 40,
 )

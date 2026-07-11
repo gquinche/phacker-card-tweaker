@@ -115,7 +115,7 @@ chart_params:
 # exactly — these are the SHIPPED values, not the notebook's rougher
 # quick-preview numbers).
 card:
-  paper: cream              # cream | white | manila
+  paper: white              # white | cream | manila
   chart_opacity: 0.6        # real .print-card__chart opacity (simplified-ui)
   back_texture: tex-chevron # PhD fallback motif from experiment/simplified-ui
   show_footer: false

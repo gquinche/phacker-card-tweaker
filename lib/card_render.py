@@ -22,13 +22,8 @@ import re
 from .card_back_render import card_back_css, card_back_label, render_card_back_html
 from .colors import cmyk_to_hex
 from .config_io import PAGE_SIZES_MM
+from .paper import paper_stock
 from .pseudo_stats import footer_text
-
-PAPER_STOCKS = {
-    "cream": {"hex": "#F2ECE0", "edge": "#D9CFB9"},
-    "white": {"hex": "#FFFFFF", "edge": "#D9D9D9"},
-    "manila": {"hex": "#EFE7D2", "edge": "#CDBE9A"},
-}
 
 _COLOR_ATTR_RE = re.compile(r'(fill|stroke)="#[0-9a-fA-F]{6,8}"')
 _COLOR_STYLE_RE = re.compile(r"(fill|stroke):\s*#[0-9a-fA-F]{6,8}")
@@ -89,8 +84,8 @@ CARD_CSS = """
     radial-gradient(ellipse 40% 40% at 0% 100%, rgba(140,110,60,0.30), transparent 70%),
     radial-gradient(ellipse 40% 40% at 100% 100%, rgba(140,110,60,0.25), transparent 70%);
 }}
-.tw-card--hand {{ width: 234px; min-height: 327px; }}    /* simplified-ui: 1.5× base portrait */
-.tw-card--verdict {{ width: 140px; min-height: 190px; }}
+.tw-card--hand {{ width: 234px; height: 327px; min-height: 327px; }}    /* simplified-ui: 1.5× base portrait */
+.tw-card--verdict {{ width: 140px; height: 190px; min-height: 190px; }}
 .tw-card--print {{ width: {print_w}mm; height: {print_h}mm; min-height: 0; }}
 
 .tw-card__crease--h {{ position:absolute; left:0; right:0; top:50%; height:1px; background: rgba(160,130,80,0.12); z-index:0; }}
@@ -136,7 +131,7 @@ _PDF_TYPED = "'DejaVu Sans Mono', 'Courier New', monospace"
 
 
 def _css_for(cfg: dict, target: str) -> str:
-    paper = PAPER_STOCKS.get(cfg["card"]["paper"], PAPER_STOCKS["cream"])
+    paper = paper_stock(cfg["card"]["paper"])
     # Keep hand cards at their shipped pixel height, but keep print cards in
     # millimetres for both the browser atlas and the final PDF.
     band_h_hand = "66px"
@@ -202,7 +197,7 @@ def render_card_html(
     )
 
     return f"""
-<div class="tw-card {size_class}" style="background: {PAPER_STOCKS.get(cfg['card']['paper'], PAPER_STOCKS['cream'])['hex']};">
+<div class="tw-card {size_class}" style="background: {paper_stock(cfg['card']['paper'])['hex']};">
   {creases_html}
   <div class="tw-card__band tw-card__band--{band_class}" style="background: {ink};">
     <span class="tw-card__band-label">{label}</span>

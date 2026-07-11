@@ -32,6 +32,7 @@ lib/
   card_back_render.py     simplified-ui card backs from real SVG motifs, browser + PDF
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
+  paper.py                 one shared front/back paper-stock palette (white default)
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
 assets/card_backs/       real SVG motifs copied from phacker-game experiment/simplified-ui
@@ -63,12 +64,14 @@ differs by target is how color is *expressed*:
 
 The Card Back selector renders the actual motif assets from `gquinche/phacker-game`
 branch `experiment/simplified-ui`: stripe, chevron, argyle, hex lattice, scallop,
-contour, flow, and the experimental guilloche. `lib/card_back_render.py` keeps the
-shared cream stock, engraved frame, and motif, then applies the approved B/W
-`P` / `DEPARTMENT OF REPRODUCIBILITY` bureau seal from the attached print prototype.
-Physical backs intentionally contain no Roman numeral or card ID, so every back is
-identical and reveals no deck information. Print Atlas can append one matching back
-sheet per front sheet for browser preview and PDF output.
+contour, flow, and the experimental guilloche. `lib/card_back_render.py` uses the
+same exact dimensions and selected paper-stock color as the front (white by default),
+then applies the engraved frame, motif, and approved B/W `P` / `DEPARTMENT OF
+REPRODUCIBILITY` bureau seal from the attached print prototype. Card Preview can
+overlay I–V for reviewing the in-game proposal, but physical preview/PDF backs
+intentionally contain no Roman numeral or card ID, so every back is identical and
+reveals no deck information. Print Atlas can append one matching back sheet per
+front sheet for browser preview and PDF output.
 
 All motifs except guilloche are **Hero Patterns by Steve Schoger (CC BY 4.0)**.
 Guilloche was authored for P-Hacker. See `assets/card_backs/README.md`.
