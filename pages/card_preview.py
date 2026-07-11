@@ -1,8 +1,4 @@
-"""Card Preview — the full real-card-look gallery: every chart type, both
-findings, rendered through the exact same HTML/CSS template used by the
-print PDF (lib/card_render.py). This is the page to check "does this match
-the real game" against phacker-game's DataCardPrint.tsx / game-cards.css.
-"""
+"""Individual card gallery rendered from the current keyed widget settings."""
 from __future__ import annotations
 
 import streamlit as st
@@ -10,46 +6,41 @@ import streamlit as st
 from lib import card_render
 from lib import chart_generators as cg
 from lib.card_render import render_preview_html
-from lib.colors import cmyk_to_hex
+from lib.editor_state import current_config
 
 st.title("🃏 Card Preview")
 st.caption(
-    "Every chart type at the real card size/band/opacity — the same template that feeds the "
-    "print PDF, just rendered with hex colors here since browsers don't understand device-cmyk()."
+    "Individual cards at the real card size/band/opacity. For paper placement, "
+    "use Print Atlas & PDF — its preview now mirrors the final sheet layout."
 )
 
-cfg = st.session_state.cfg
+cfg = current_config()
 
 with st.sidebar:
     st.subheader("Card Preview")
     size = st.radio(
         "Card size", ["verdict", "hand"], horizontal=True, key="preview_card_size",
-        help="verdict = 140x190px (publication blotter) · hand = 220x300px (hand strip)",
+        help="verdict = 140x190px (publication blotter) · hand = 234x327px (hand strip)",
     )
 
-e_hex = cmyk_to_hex(*cfg["cmyk"]["effect"])
-n_hex = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
+seed = st.number_input(
+    "Seed (same seed used for every chart type below)", 0, 9999, 0, 1, key="preview_seed",
+)
+effect_hex = cfg["palette"]["SIG"]
+no_effect_hex = cfg["palette"]["NULL"]
+cards_html = []
+for name in cg.all_chart_names():
+    svg_effect = cg.render_svg_bare(name, True, int(seed), cfg, effect_hex)
+    svg_no_effect = cg.render_svg_bare(name, False, int(seed), cfg, no_effect_hex)
+    cards_html.append(card_render.render_card_html(
+        card_id=f"{name}-E", significant=True, chart_svg=svg_effect, cfg=cfg, size=size,
+    ))
+    cards_html.append(card_render.render_card_html(
+        card_id=f"{name}-N", significant=False, chart_svg=svg_no_effect, cfg=cfg, size=size,
+    ))
 
-
-@st.fragment
-def gallery():
-    seed = st.number_input(
-        "Seed (same seed used for every chart type below)", 0, 9999, 0, 1, key="preview_seed",
-    )
-    cards_html = []
-    for name in cg.all_chart_names():
-        svg_t = cg.render_svg_bare(name, True, int(seed), cfg, e_hex)
-        svg_f = cg.render_svg_bare(name, False, int(seed), cfg, n_hex)
-        cards_html.append(card_render.render_card_html(
-            card_id=f"{name}-T", significant=True, chart_svg=svg_t, cfg=cfg, size=size))
-        cards_html.append(card_render.render_card_html(
-            card_id=f"{name}-F", significant=False, chart_svg=svg_f, cfg=cfg, size=size))
-    html = render_preview_html(cards_html, cfg, gap_px=14)
-    card_h = 300 if size == "hand" else 190
-    st.iframe(html, height=card_h + 80)
-
-
-gallery()
+card_h = 327 if size == "hand" else 190
+st.iframe(render_preview_html(cards_html, cfg, gap_px=14), height=card_h + 80)
 
 st.divider()
 st.caption(

@@ -117,7 +117,7 @@ chart_params:
 card:
   paper: cream              # cream | white | manila
   chart_opacity: 0.6        # real .print-card__chart opacity (simplified-ui)
-  show_footer: true
+  show_footer: false
   show_stamp: true
   show_creases: true
 

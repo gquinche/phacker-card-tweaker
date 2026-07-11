@@ -1,8 +1,8 @@
-"""Small helpers that keep widget drafts separate from the saved card config.
+"""Map ordinary Streamlit widget keys to the exported card configuration.
 
-`st.session_state.cfg` is the editor's single durable source of truth. Widgets
-use short-lived, underscore-prefixed draft keys so Streamlit can discard and
-rehydrate their page-local state without clobbering a loaded config.
+Widgets own the live values. Rendering and export call :func:`current_config`
+to collect those values into the nested YAML shape. There is no second mutable
+`cfg` object competing with Streamlit's widget state.
 """
 from __future__ import annotations
 
@@ -11,37 +11,121 @@ from typing import Any
 
 import streamlit as st
 
-_CONFIG_WIDGET_PREFIX = "_cfg_"
+from .colors import cmyk_to_hex
+
+_CONFIG_TEMPLATE_KEY = "config_template"
+_PARAM_PREFIX = "param_"
+
+# One stable Streamlit key per exported scalar/list setting. Dynamic per-chart
+# parameters use `param_<chart>_<name>` and are collected separately below.
+WIDGET_PATHS: dict[str, tuple[str, ...]] = {
+    "card_paper": ("card", "paper"),
+    "band_pct": ("band_pct",),
+    "card_chart_opacity": ("card", "chart_opacity"),
+    "card_show_footer": ("card", "show_footer"),
+    "card_show_stamp": ("card", "show_stamp"),
+    "card_show_creases": ("card", "show_creases"),
+    "dpi": ("dpi",),
+    "hatch_lw": ("hatch_lw",),
+    "hatch_bar_control": ("hatch", "bar", "0"),
+    "hatch_bar_treatment": ("hatch", "bar", "1"),
+    "hatch_box_control": ("hatch", "box", "0"),
+    "hatch_box_treatment": ("hatch", "box", "1"),
+    "hatch_gauss": ("hatch", "gauss"),
+    "effect_c": ("cmyk", "effect", "0"),
+    "effect_m": ("cmyk", "effect", "1"),
+    "effect_y": ("cmyk", "effect", "2"),
+    "effect_k": ("cmyk", "effect", "3"),
+    "no_effect_c": ("cmyk", "no_effect", "0"),
+    "no_effect_m": ("cmyk", "no_effect", "1"),
+    "no_effect_y": ("cmyk", "no_effect", "2"),
+    "no_effect_k": ("cmyk", "no_effect", "3"),
+    "print_cols": ("print", "cols"),
+    "print_rows": ("print", "rows"),
+    "print_page": ("print", "page"),
+    "print_card_w_mm": ("print", "card_w_mm"),
+    "print_card_h_mm": ("print", "card_h_mm"),
+    "print_bleed_mm": ("print", "bleed_mm"),
+    "print_use_cmyk": ("print", "use_cmyk"),
+    "print_show_calibration_strip": ("print", "show_calibration_strip"),
+    "print_show_card_id": ("print", "show_card_id"),
+}
 
 
-def config_widget_key(name: str) -> str:
-    """Return the stable, namespaced Streamlit key for one config control."""
-    return f"{_CONFIG_WIDGET_PREFIX}{name}"
+def param_widget_key(chart_name: str, param_name: str) -> str:
+    return f"{_PARAM_PREFIX}{chart_name}_{param_name}"
 
 
-def hydrate_config_widget(name: str, value: Any) -> str:
-    """Seed a widget draft from cfg only when the page creates it anew."""
-    key = config_widget_key(name)
+def ensure_widget_value(key: str, value: Any) -> None:
+    """Initialize a page-specific widget normally when Streamlit recreates it."""
     if key not in st.session_state:
         st.session_state[key] = deepcopy(value)
-    return key
 
 
-def clear_config_widget_drafts() -> None:
-    """Forget page-local widget drafts so the next page run hydrates from cfg."""
+def _get_path(cfg: dict, path: tuple[str, ...]) -> Any:
+    value: Any = cfg
+    for part in path:
+        value = value[int(part)] if isinstance(value, list) else value[part]
+    return value
+
+
+def _set_path(cfg: dict, path: tuple[str, ...], value: Any) -> None:
+    target: Any = cfg
+    for part in path[:-1]:
+        target = target[int(part)] if isinstance(target, list) else target[part]
+    final = path[-1]
+    if isinstance(target, list):
+        target[int(final)] = value
+    else:
+        target[final] = value
+
+
+def load_config_into_widgets(cfg: dict) -> None:
+    """Replace the editor state from defaults or an imported YAML config."""
+    template = deepcopy(cfg)
+    st.session_state[_CONFIG_TEMPLATE_KEY] = template
+    st.session_state.pop("cfg", None)  # retire the old competing state layer
+
+    for key, path in WIDGET_PATHS.items():
+        st.session_state[key] = deepcopy(_get_path(template, path))
+
     for key in list(st.session_state):
-        if key.startswith(_CONFIG_WIDGET_PREFIX):
+        if key.startswith(_PARAM_PREFIX):
             del st.session_state[key]
+    for chart_name, params in template.get("chart_params", {}).items():
+        for param_name, value in params.items():
+            widget_value = tuple(value) if isinstance(value, list) else deepcopy(value)
+            st.session_state[param_widget_key(chart_name, param_name)] = widget_value
 
-
-def replace_config(cfg: dict, *, clear_drafts: bool = True) -> None:
-    """Install a new config and invalidate output derived from the old config."""
-    st.session_state.cfg = cfg
-    if clear_drafts:
-        clear_config_widget_drafts()
     st.session_state.pop("_last_pdf", None)
 
 
-def schedule_config_draft_reset() -> None:
-    """Clear drafts at the next safe script start before any widget is created."""
-    st.session_state["_clear_config_widget_drafts"] = True
+def initialize_editor(cfg: dict) -> None:
+    """Seed normal widget state once at session start."""
+    if _CONFIG_TEMPLATE_KEY not in st.session_state:
+        load_config_into_widgets(cfg)
+
+
+def current_config() -> dict:
+    """Collect current widget values into the nested export/render config."""
+    cfg = deepcopy(st.session_state[_CONFIG_TEMPLATE_KEY])
+    for key, path in WIDGET_PATHS.items():
+        if key in st.session_state:
+            _set_path(cfg, path, deepcopy(st.session_state[key]))
+
+    for chart_name, params in cfg.get("chart_params", {}).items():
+        for param_name in params:
+            key = param_widget_key(chart_name, param_name)
+            if key in st.session_state:
+                value = deepcopy(st.session_state[key])
+                params[param_name] = list(value) if isinstance(value, tuple) else value
+
+    # Hex palette is derived from the canonical CMYK slider values.
+    cfg["palette"]["SIG"] = cmyk_to_hex(*cfg["cmyk"]["effect"])
+    cfg["palette"]["NULL"] = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
+
+    # Keep the last collected snapshot as the import/default template. This is
+    # one-way (widgets -> snapshot), so it never fights a widget during reruns
+    # and preserves values for page-specific widgets when their page is hidden.
+    st.session_state[_CONFIG_TEMPLATE_KEY] = deepcopy(cfg)
+    return cfg

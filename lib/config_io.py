@@ -41,7 +41,7 @@ FALLBACK_CONFIG: dict = {
         "chart_opacity": 0.45,      # real shipped .print-card__chart opacity
         "wash_alpha_sig": 0.18,     # real shipped .print-card--significant wash
         "wash_alpha_null": 0.16,   # real shipped .print-card--null wash
-        "show_footer": True,
+        "show_footer": False,
         "show_stamp": True,
         "show_creases": True,
     },

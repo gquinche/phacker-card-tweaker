@@ -175,12 +175,12 @@ def render_card_html(
     else:
         chart_style = ""
 
-    label = "TRUE" if significant else "FALSE"
+    label = "EFFECT" if significant else "NO EFFECT"
     band_class = "significant" if significant else "null"
     size_class = f"tw-card--{size}"
 
     footer_html = ""
-    if cfg["card"].get("show_footer", True):
+    if cfg["card"].get("show_footer", False):
         footer_html = (
             '<div class="tw-card__footer">'
             '<div class="tw-card__footer-rule">P-HACKER · RECORDS BUREAU</div>'
@@ -194,7 +194,11 @@ def render_card_html(
             '<div class="tw-card__crease--h" aria-hidden="true"></div>'
             '<div class="tw-card__crease--v" aria-hidden="true"></div>'
         )
-    id_html = f'<span class="tw-card__id">{card_id}</span>' if cfg["print"].get("show_card_id", True) and target == "pdf" else ""
+    id_html = (
+        f'<span class="tw-card__id">{card_id}</span>'
+        if cfg["print"].get("show_card_id", True) and size == "print"
+        else ""
+    )
 
     return f"""
 <div class="tw-card {size_class}" style="background: {PAPER_STOCKS.get(cfg['card']['paper'], PAPER_STOCKS['cream'])['hex']};">
@@ -250,7 +254,7 @@ def render_print_atlas_html(
         cells = []
         for i in range(n):
             svg = svg_pool[i % len(svg_pool)]
-            card_id = ("T" if significant else "F") + f"{i:02d}"
+            card_id = ("E" if significant else "N") + f"{i:02d}"
             card_html = render_card_html(
                 card_id=card_id,
                 significant=significant,
@@ -267,14 +271,14 @@ def render_print_atlas_html(
             cal_strip = '<div class="tw-calstrip">' + "".join(
                 f'<div style="background:{c};width:{sw:.1f}mm;height:7mm;"></div>' for c in swatches
             ) + "</div>"
-        title = "TRUE FINDINGS" if significant else "FALSE FINDINGS"
+        title = "EFFECT CARDS" if significant else "NO EFFECT CARDS"
         subtitle = "SIGNIFICANT RESULTS" if significant else "NULL RESULTS"
         atlas_ink = ink_css_color(cfg, significant, target)
         grid_w = cols * cell_w
         grid_h = rows * cell_h
         grid_left = (page_w - grid_w) / 2
-        grid_top = max((page_h - grid_h) / 2, 10.0)
-        header_top = max(2.0, grid_top - 7.0)
+        grid_top = max((page_h - grid_h) / 2, 13.0)
+        header_top = max(2.0, grid_top - 11.0)
         return f"""
 <section class="tw-page">
   <header class="tw-atlas-header" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:{atlas_ink};">
@@ -289,12 +293,36 @@ def render_print_atlas_html(
 </section>"""
 
     body = build_page(True, sig_svgs) + build_page(False, null_svgs)
+    font_import = _PREVIEW_FONT_IMPORT if target == "preview" else ""
+    body_class = "tw-preview-stage" if target == "preview" else "tw-pdf-body"
 
-    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">{font_import}<style>
 @page {{ size: {page_w}mm {page_h}mm; margin: 0; }}
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ margin: 0; }}
-.tw-page {{ width: {page_w}mm; height: {page_h}mm; position: relative; page-break-after: always; }}
+body.tw-preview-stage {{
+  min-height:100vh;
+  padding:10mm;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10mm;
+  background:#d7d4ce;
+}}
+.tw-page {{
+  width:{page_w}mm;
+  height:{page_h}mm;
+  position:relative;
+  overflow:hidden;
+  flex:0 0 auto;
+  background:#fff;
+  page-break-after:always;
+}}
+body.tw-preview-stage .tw-page {{
+  page-break-after:auto;
+  box-shadow:0 2mm 7mm rgba(35,31,25,0.24);
+  outline:0.25mm solid rgba(0,0,0,0.12);
+}}
 .tw-page:last-child {{ page-break-after: avoid; }}
 .tw-atlas-header {{
   position:absolute;
@@ -337,7 +365,7 @@ body {{ margin: 0; }}
 }}
 .tw-calstrip {{ position:absolute; bottom:0; left:0; right:0; display:flex; }}
 {_css_for(cfg, target)}
-</style></head><body>
+</style></head><body class="{body_class}">
 {body}
 </body></html>"""
 
