@@ -69,6 +69,7 @@ with st.sidebar:
 
 pages = [
     st.Page("pages/chart_lab.py", title="Chart Lab", icon="📊", default=True),
+    st.Page("pages/ink_lab.py", title="Ink Lab", icon="🎨"),
     st.Page("pages/card_preview.py", title="Card Preview", icon="🃏"),
     st.Page("pages/print_atlas.py", title="Print Atlas & PDF", icon="🖨️"),
     st.Page("pages/config_page.py", title="Config", icon="⚙️"),

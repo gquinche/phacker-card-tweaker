@@ -20,8 +20,8 @@ from __future__ import annotations
 import re
 
 from .card_back_render import card_back_css, card_back_label, render_card_back_html
-from .colors import cmyk_to_hex
 from .config_io import PAGE_SIZES_MM
+from .ink_control import css_from_hex, device_cmyk, preview_hex
 from .paper import paper_stock
 from .pseudo_stats import footer_text
 
@@ -60,11 +60,10 @@ def ink_css_color(cfg: dict, significant: bool, target: str) -> str:
                          literal CMYK — no ICC profile needed for this to work),
                          else falls back to the same hex the preview uses.
     """
-    key = "effect" if significant else "no_effect"
-    c, m, y, k = cfg["cmyk"][key]
+    page = "effect" if significant else "no_effect"
     if target == "pdf" and cfg["print"].get("use_cmyk", True):
-        return f"device-cmyk({c}% {m}% {y}% {k}%)"
-    return cmyk_to_hex(c, m, y, k)
+        return device_cmyk(cfg, page)
+    return preview_hex(cfg, page)
 
 
 CARD_CSS = """
@@ -73,23 +72,19 @@ CARD_CSS = """
   background: {paper_hex};
   border-radius: 12px;                    /* matches simplified-ui --card-radius */
   border: 1px solid {paper_edge};
-  box-shadow: 0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,240,0.55);
+  box-shadow: {card_shadow};
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: {serif_stack};
-  background-image:
-    radial-gradient(ellipse 35% 35% at 0% 0%, rgba(140,110,60,0.30), transparent 70%),
-    radial-gradient(ellipse 35% 35% at 100% 0%, rgba(140,110,60,0.25), transparent 70%),
-    radial-gradient(ellipse 40% 40% at 0% 100%, rgba(140,110,60,0.30), transparent 70%),
-    radial-gradient(ellipse 40% 40% at 100% 100%, rgba(140,110,60,0.25), transparent 70%);
+  background-image: {paper_texture};
 }}
 .tw-card--hand {{ width: 234px; height: 327px; min-height: 327px; }}    /* simplified-ui: 1.5× base portrait */
 .tw-card--verdict {{ width: 140px; height: 190px; min-height: 190px; }}
 .tw-card--print {{ width: {print_w}mm; height: {print_h}mm; min-height: 0; }}
 
-.tw-card__crease--h {{ position:absolute; left:0; right:0; top:50%; height:1px; background: rgba(160,130,80,0.12); z-index:0; }}
-.tw-card__crease--v {{ position:absolute; top:0; bottom:0; left:50%; width:1px; background: rgba(160,130,80,0.08); z-index:0; }}
+.tw-card__crease--h {{ position:absolute; left:0; right:0; top:50%; height:1px; background: {crease_h}; z-index:0; }}
+.tw-card__crease--v {{ position:absolute; top:0; bottom:0; left:50%; width:1px; background: {crease_v}; z-index:0; }}
 
 .tw-card__band {{ position:relative; z-index:1; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding: 4px 6px; }}
 .tw-card--hand .tw-card__band {{ height: {band_h_hand}; }}
@@ -108,12 +103,12 @@ CARD_CSS = """
 .tw-card__chart {{ position:relative; z-index:1; flex:1; width:100%; display:flex; opacity: {chart_opacity}; }}
 .tw-card__chart svg {{ width:100%; height:100%; display:block; }}
 
-.tw-card__footer {{ position:relative; z-index:1; padding: 3px 6px 4px; border-top: 1px solid rgba(140,110,60,0.20); background: rgba(235,228,210,0.45); flex-shrink:0; }}
-.tw-card__footer-rule {{ font-family: {typed_font_stack}; font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color: rgba(60,45,20,0.55); border-bottom:1px solid rgba(100,80,40,0.20); padding-bottom:1px; margin-bottom:1px; }}
-.tw-card__footer-stats {{ font-family: {typed_font_stack}; font-size:0.8rem; color: rgba(40,30,10,0.80); letter-spacing:0.04em; line-height:1.3; }}
+.tw-card__footer {{ position:relative; z-index:1; padding: 3px 6px 4px; border-top: 1px solid {footer_rule}; background: {footer_bg}; flex-shrink:0; }}
+.tw-card__footer-rule {{ font-family: {typed_font_stack}; font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color: {footer_text}; border-bottom:1px solid {footer_rule}; padding-bottom:1px; margin-bottom:1px; }}
+.tw-card__footer-stats {{ font-family: {typed_font_stack}; font-size:0.8rem; color: {footer_stats}; letter-spacing:0.04em; line-height:1.3; }}
 
-.tw-card__stamp {{ position:absolute; bottom:24px; right:4px; width:24px; height:14px; border:1.5px solid rgba(58,110,165,0.18); border-radius:2px; transform: rotate(-8deg); z-index:0; }}
-.tw-card__id {{ position:absolute; bottom:2px; right:3px; font-size:5pt; font-family: {typed_font_stack}; color: rgba(0,0,0,0.18); z-index:1; }}
+.tw-card__stamp {{ position:absolute; bottom:24px; right:4px; width:24px; height:14px; border:1.5px solid {stamp_color}; border-radius:2px; transform: rotate(-8deg); z-index:0; }}
+.tw-card__id {{ position:absolute; bottom:2px; right:3px; font-size:5pt; font-family: {typed_font_stack}; color: {id_color}; z-index:1; }}
 """
 
 _PREVIEW_FONT_IMPORT = (
@@ -132,22 +127,63 @@ _PDF_TYPED = "'DejaVu Sans Mono', 'Courier New', monospace"
 
 def _css_for(cfg: dict, target: str) -> str:
     paper = paper_stock(cfg["card"]["paper"])
+    is_pdf = target == "pdf"
+    use_cmyk = cfg["print"].get("use_cmyk", True)
+    paper_hex = css_from_hex(paper["hex"], target, use_cmyk)
+    paper_edge = css_from_hex(paper["edge"], target, use_cmyk)
     # Keep hand cards at their shipped pixel height, but keep print cards in
     # millimetres for both the browser atlas and the final PDF.
     band_h_hand = "66px"
     band_h_print = f'{cfg["print"]["card_h_mm"] * cfg["band_pct"] / 100:.2f}mm'
+    if is_pdf:
+        card_shadow = "none"
+        paper_texture = "none"
+        crease_h = "rgba(0,0,0,0.12)"
+        crease_v = "rgba(0,0,0,0.08)"
+        footer_rule = "rgba(0,0,0,0.20)"
+        footer_bg = paper_hex
+        footer_text = "rgba(0,0,0,0.55)"
+        footer_stats = "rgba(0,0,0,0.80)"
+        stamp_color = "rgba(0,0,0,0.18)"
+        id_color = "rgba(0,0,0,0.18)"
+    else:
+        card_shadow = "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,240,0.55)"
+        paper_texture = (
+            "radial-gradient(ellipse 35% 35% at 0% 0%, rgba(140,110,60,0.30), transparent 70%),"
+            " radial-gradient(ellipse 35% 35% at 100% 0%, rgba(140,110,60,0.25), transparent 70%),"
+            " radial-gradient(ellipse 40% 40% at 0% 100%, rgba(140,110,60,0.30), transparent 70%),"
+            " radial-gradient(ellipse 40% 40% at 100% 100%, rgba(140,110,60,0.25), transparent 70%)"
+        )
+        crease_h = "rgba(160,130,80,0.12)"
+        crease_v = "rgba(160,130,80,0.08)"
+        footer_rule = "rgba(140,110,60,0.20)"
+        footer_bg = "rgba(235,228,210,0.45)"
+        footer_text = "rgba(60,45,20,0.55)"
+        footer_stats = "rgba(40,30,10,0.80)"
+        stamp_color = "rgba(58,110,165,0.18)"
+        id_color = "rgba(0,0,0,0.18)"
     return CARD_CSS.format(
-        paper_hex=paper["hex"],
-        paper_edge=paper["edge"],
-        serif_stack=_PDF_SERIF if target == "pdf" else _PREVIEW_SERIF,
-        print_font_stack=_PDF_SERIF if target == "pdf" else _PREVIEW_SERIF,
-        typed_font_stack=_PDF_TYPED if target == "pdf" else _PREVIEW_TYPED,
+        paper_hex=paper_hex,
+        paper_edge=paper_edge,
+        serif_stack=_PDF_SERIF if is_pdf else _PREVIEW_SERIF,
+        print_font_stack=_PDF_SERIF if is_pdf else _PREVIEW_SERIF,
+        typed_font_stack=_PDF_TYPED if is_pdf else _PREVIEW_TYPED,
         band_h_hand=band_h_hand,
         band_h_verdict="38px",
         band_h_print=band_h_print,
         chart_opacity=cfg["card"]["chart_opacity"],
         print_w=cfg["print"]["card_w_mm"],
         print_h=cfg["print"]["card_h_mm"],
+        card_shadow=card_shadow,
+        paper_texture=paper_texture,
+        crease_h=crease_h,
+        crease_v=crease_v,
+        footer_rule=footer_rule,
+        footer_bg=footer_bg,
+        footer_text=footer_text,
+        footer_stats=footer_stats,
+        stamp_color=stamp_color,
+        id_color=id_color,
     )
 
 
@@ -195,9 +231,14 @@ def render_card_html(
         if cfg["print"].get("show_card_id", True) and size == "print"
         else ""
     )
+    paper_color = css_from_hex(
+        paper_stock(cfg["card"]["paper"])["hex"],
+        target,
+        cfg["print"].get("use_cmyk", True),
+    )
 
     return f"""
-<div class="tw-card {size_class}" style="background: {paper_stock(cfg['card']['paper'])['hex']};">
+<div class="tw-card {size_class}" style="background: {paper_color};">
   {creases_html}
   <div class="tw-card__band tw-card__band--{band_class}" style="background: {ink};">
     <span class="tw-card__band-label">{label}</span>
@@ -267,6 +308,7 @@ def render_print_atlas_html(
             cal_strip = '<div class="tw-calstrip">' + "".join(
                 f'<div style="background:{c};width:{sw:.1f}mm;height:7mm;"></div>' for c in swatches
             ) + "</div>"
+        page_key = "effect" if significant else "no_effect"
         title = "EFFECT CARDS" if significant else "NO EFFECT CARDS"
         subtitle = "SIGNIFICANT RESULTS" if significant else "NULL RESULTS"
         atlas_ink = ink_css_color(cfg, significant, target)
@@ -276,7 +318,7 @@ def render_print_atlas_html(
         grid_top = max((page_h - grid_h) / 2, 13.0)
         header_top = max(2.0, grid_top - 11.0)
         return f"""
-<section class="tw-page">
+<section class="tw-page" data-page="{page_key}">
   <header class="tw-atlas-header" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:{atlas_ink};">
     <span class="tw-atlas-header__kicker">P-HACKER · RECORDS BUREAU</span>
     <span class="tw-atlas-header__title">{title}</span>
@@ -291,6 +333,11 @@ def render_print_atlas_html(
     def build_back_page(copy_index: int) -> str:
         n = cols * rows
         token = cfg["card"].get("back_texture", "tex-chevron")
+        back_ink = (
+            device_cmyk(cfg, "back")
+            if target == "pdf" and cfg["print"].get("use_cmyk", True)
+            else preview_hex(cfg, "back")
+        )
         cells = []
         for i in range(n):
             card_html = render_card_back_html(
@@ -298,6 +345,7 @@ def render_print_atlas_html(
                 token=token,
                 size="print",
                 uid=f"back-{copy_index}-{i}",
+                target=target,
             )
             cells.append(f'<div class="tw-cell">{card_html}</div>')
         grid_w = cols * cell_w
@@ -306,8 +354,8 @@ def render_print_atlas_html(
         grid_top = max((page_h - grid_h) / 2, 13.0)
         header_top = max(2.0, grid_top - 11.0)
         return f"""
-<section class="tw-page">
-  <header class="tw-atlas-header tw-atlas-header--back" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:#2b2b2b;">
+<section class="tw-page" data-page="back">
+  <header class="tw-atlas-header tw-atlas-header--back" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:{back_ink};">
     <span class="tw-atlas-header__kicker">P-HACKER · RECORDS BUREAU</span>
     <span class="tw-atlas-header__title">CARD BACKS</span>
     <span class="tw-atlas-header__meta">{card_back_label(token).upper()} · {n} CARDS</span>
@@ -323,12 +371,10 @@ def render_print_atlas_html(
         body += build_back_page(1) + build_back_page(2)
     font_import = _PREVIEW_FONT_IMPORT if target == "preview" else ""
     body_class = "tw-preview-stage" if target == "preview" else "tw-pdf-body"
-
-    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">{font_import}<style>
-@page {{ size: {page_w}mm {page_h}mm; margin: 0; }}
-* {{ box-sizing: border-box; margin: 0; padding: 0; }}
-body {{ margin: 0; }}
-body.tw-preview-stage {{
+    use_cmyk = cfg["print"].get("use_cmyk", True)
+    page_background = css_from_hex("#FFFFFF", target, use_cmyk)
+    preview_stage_css = "" if target == "pdf" else """
+body.tw-preview-stage {
   min-height:100vh;
   padding:10mm;
   display:flex;
@@ -336,20 +382,27 @@ body.tw-preview-stage {{
   align-items:center;
   gap:10mm;
   background:#d7d4ce;
-}}
+}
+body.tw-preview-stage .tw-page {
+  page-break-after:auto;
+  box-shadow:0 2mm 7mm rgba(35,31,25,0.24);
+  outline:0.25mm solid rgba(0,0,0,0.12);
+}
+"""
+
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">{font_import}<style>
+@page {{ size: {page_w}mm {page_h}mm; margin: 0; }}
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{ margin: 0; }}
+{preview_stage_css}
 .tw-page {{
   width:{page_w}mm;
   height:{page_h}mm;
   position:relative;
   overflow:hidden;
   flex:0 0 auto;
-  background:#fff;
+  background:{page_background};
   page-break-after:always;
-}}
-body.tw-preview-stage .tw-page {{
-  page-break-after:auto;
-  box-shadow:0 2mm 7mm rgba(35,31,25,0.24);
-  outline:0.25mm solid rgba(0,0,0,0.12);
 }}
 .tw-page:last-child {{ page-break-after: avoid; }}
 .tw-atlas-header {{
@@ -393,7 +446,7 @@ body.tw-preview-stage .tw-page {{
 }}
 .tw-calstrip {{ position:absolute; bottom:0; left:0; right:0; display:flex; }}
 {_css_for(cfg, target)}
-{card_back_css(cfg, cfg["card"].get("back_texture", "tex-chevron"))}
+{card_back_css(cfg, cfg["card"].get("back_texture", "tex-chevron"), target)}
 </style></head><body class="{body_class}">
 {body}
 </body></html>"""

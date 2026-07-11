@@ -12,7 +12,6 @@ from lib import card_render
 from lib import chart_generators as cg
 from lib.card_render import render_preview_html
 from lib.chart_params import CHART_PARAM_SCHEMAS, cast_value
-from lib.colors import cmyk_to_hex
 from lib.editor_state import current_config, param_widget_key
 
 st.title("📊 Chart Lab")
@@ -44,43 +43,7 @@ with st.sidebar:
         help="Keep sparse — Group A stays clean so the two-bell overlap doesn't get damaged.",
     )
 
-    st.subheader("Ink — EFFECT (blue)")
-    ec1, ec2 = st.columns(2)
-    with ec1:
-        st.slider("C", 0, 100, key="effect_c")
-        st.slider("M", 0, 100, key="effect_m")
-    with ec2:
-        st.slider("Y", 0, 100, key="effect_y")
-        st.slider("K", 0, 100, key="effect_k")
-    effect_hex = cmyk_to_hex(
-        st.session_state.effect_c,
-        st.session_state.effect_m,
-        st.session_state.effect_y,
-        st.session_state.effect_k,
-    )
-    st.html(
-        f'<div style="background:{effect_hex};border-radius:4px;padding:4px 8px;'
-        f'font-family:monospace;font-size:12px;color:#fff">{effect_hex}</div>'
-    )
-
-    st.subheader("Ink — NO EFFECT (gray)")
-    nc1, nc2 = st.columns(2)
-    with nc1:
-        st.slider("C", 0, 100, key="no_effect_c")
-        st.slider("M", 0, 100, key="no_effect_m")
-    with nc2:
-        st.slider("Y", 0, 100, key="no_effect_y")
-        st.slider("K", 0, 100, key="no_effect_k")
-    no_effect_hex = cmyk_to_hex(
-        st.session_state.no_effect_c,
-        st.session_state.no_effect_m,
-        st.session_state.no_effect_y,
-        st.session_state.no_effect_k,
-    )
-    st.html(
-        f'<div style="background:{no_effect_hex};border-radius:4px;padding:4px 8px;'
-        f'font-family:monospace;font-size:12px;color:#fff">{no_effect_hex}</div>'
-    )
+    st.caption("CMYK recipes and channel policies are edited in Ink Lab.")
 
 chart_name = st.selectbox("Chart type", cg.all_chart_names(), key="lab_chart_name")
 

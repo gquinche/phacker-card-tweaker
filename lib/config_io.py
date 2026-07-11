@@ -16,10 +16,11 @@ from .chart_params import default_chart_params
 DEFAULTS_PATH = Path(__file__).resolve().parent.parent / "config_defaults.yaml"
 
 FALLBACK_CONFIG: dict = {
-    "palette": {"SIG": "#426183", "NULL": "#767676"},
+    "palette": {"SIG": "#426183", "NULL": "#767676", "BACK": "#2b2b2b"},
     "cmyk": {
         "effect": [50, 26, 0, 49],      # -> #426183
         "no_effect": [0, 0, 0, 54],     # -> #767676
+        "back": [0, 0, 0, 83],          # -> #2b2b2b
     },
     "hatch": {
         "bar": ["///", "|||"],
@@ -57,6 +58,12 @@ FALLBACK_CONFIG: dict = {
         "show_calibration_strip": False,
         "show_card_id": True,
         "include_back_pages": True,
+        "strict_ink_check": True,
+        "ink_policy": {
+            "effect": ["C", "M", "K"],
+            "no_effect": ["K"],
+            "back": ["K"],
+        },
     },
 }
 

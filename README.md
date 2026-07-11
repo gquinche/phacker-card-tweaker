@@ -19,6 +19,7 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
 app.py                 entry point — st.navigation/st.Page, shared sidebar (YAML import/export)
 pages/
   chart_lab.py          per-chart-type tuning with ordinary keyed Streamlit widgets
+  ink_lab.py            per-page CMYK recipes, C/K plane, policies, and histogram
   card_preview.py        full gallery, every chart type × both findings, at real card size
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (WeasyPrint)
   config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
@@ -32,6 +33,7 @@ lib/
   card_back_render.py     simplified-ui card backs from real SVG motifs, browser + PDF
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
+  ink_control.py           page recipes, C/K picker data, histogram + foreign-ink audit
   paper.py                 one shared front/back paper-stock palette (white default)
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
@@ -75,6 +77,17 @@ front sheet for browser preview and PDF output.
 
 All motifs except guilloche are **Hero Patterns by Steve Schoger (CC BY 4.0)**.
 Guilloche was authored for P-Hacker. See `assets/card_backs/README.md`.
+
+### Ink Lab and strict print preflight
+
+Ink Lab owns separate EFFECT, NO EFFECT, and BACK CMYK recipes. It provides exact
+C/M/Y/K sliders, allowed-channel policies, a clickable Cyan-versus-Black plane,
+and a faceted channel-coverage histogram. PDF rendering uses each page's assigned
+`device-cmyk()` recipe and strips warm paper aging, gold back rules, and shadow
+colors from the print target. Print Atlas audits the actual generated page markup;
+when strict preflight is enabled, any color that activates a channel outside that
+page's policy blocks PDF generation. Defaults are EFFECT=C/M/K, NO EFFECT=K, and
+BACK=K, with Y=0 on all pages.
 
 ### Why WeasyPrint, and why CMYK actually works now
 

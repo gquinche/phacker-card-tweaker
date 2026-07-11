@@ -41,6 +41,10 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "no_effect_m": ("cmyk", "no_effect", "1"),
     "no_effect_y": ("cmyk", "no_effect", "2"),
     "no_effect_k": ("cmyk", "no_effect", "3"),
+    "back_c": ("cmyk", "back", "0"),
+    "back_m": ("cmyk", "back", "1"),
+    "back_y": ("cmyk", "back", "2"),
+    "back_k": ("cmyk", "back", "3"),
     "print_cols": ("print", "cols"),
     "print_rows": ("print", "rows"),
     "print_page": ("print", "page"),
@@ -51,6 +55,10 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "print_show_calibration_strip": ("print", "show_calibration_strip"),
     "print_show_card_id": ("print", "show_card_id"),
     "print_include_back_pages": ("print", "include_back_pages"),
+    "print_strict_ink_check": ("print", "strict_ink_check"),
+    "effect_allowed_channels": ("print", "ink_policy", "effect"),
+    "no_effect_allowed_channels": ("print", "ink_policy", "no_effect"),
+    "back_allowed_channels": ("print", "ink_policy", "back"),
 }
 
 
@@ -151,6 +159,7 @@ def current_config() -> dict:
     # Hex palette is derived from the canonical CMYK slider values.
     cfg["palette"]["SIG"] = cmyk_to_hex(*cfg["cmyk"]["effect"])
     cfg["palette"]["NULL"] = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
+    cfg["palette"]["BACK"] = cmyk_to_hex(*cfg["cmyk"]["back"])
 
     # Keep the last collected snapshot as the import/default template. This is
     # one-way (widgets -> snapshot), so it never fights a widget during reruns

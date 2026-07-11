@@ -12,6 +12,7 @@ from lib import chart_generators as cg
 from lib.card_render import build_pdf_bytes, render_print_atlas_html
 from lib.config_io import PAGE_SIZES_MM, dump_yaml
 from lib.editor_state import current_config
+from lib.ink_control import PAGE_LABELS, audit_print_html
 
 st.title("🖨️ Print Atlas & PDF")
 st.caption(
@@ -47,6 +48,11 @@ with st.sidebar:
     st.checkbox("Calibration strip (for print-scale checks)", key="print_show_calibration_strip")
     st.checkbox("Card ID stamps", key="print_show_card_id")
     st.checkbox("Include matching SVG card-back sheets", key="print_include_back_pages")
+    st.checkbox(
+        "Block PDF when foreign inks are detected",
+        key="print_strict_ink_check",
+        help="Runs page-level CMYK policy checks before WeasyPrint.",
+    )
 
 # Collect after declaring the page-specific controls so this snapshot includes
 # exactly what the user sees in the widgets.
@@ -82,6 +88,21 @@ st.caption("White sheets are the physical paper area; optional back sheets use t
 preview_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="preview")
 st.iframe(preview_html, height="content")
 
+pdf_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="pdf")
+ink_audit = audit_print_html(pdf_html, cfg)
+st.subheader("Ink preflight")
+if ink_audit["safe"]:
+    st.success("Generated print markup matches every page's allowed CMYK channels.")
+else:
+    st.error(f"Detected {len(ink_audit['warnings'])} foreign-ink condition(s).")
+    for warning in ink_audit["warnings"]:
+        st.warning(warning.message)
+
+observed_rows = []
+for page, counts in ink_audit["observed"].items():
+    observed_rows.append({"Page": PAGE_LABELS[page], **counts})
+st.dataframe(observed_rows, hide_index=True, width="stretch")
+
 st.divider()
 col_info, col_btn = st.columns([3, 1])
 with col_info:
@@ -90,6 +111,8 @@ with col_info:
 |---|---|
 | EFFECT ink | `{effect_hex}` (C{cfg['cmyk']['effect'][0]} M{cfg['cmyk']['effect'][1]} Y{cfg['cmyk']['effect'][2]} K{cfg['cmyk']['effect'][3]}) |
 | NO EFFECT ink | `{no_effect_hex}` (C{cfg['cmyk']['no_effect'][0]} M{cfg['cmyk']['no_effect'][1]} Y{cfg['cmyk']['no_effect'][2]} K{cfg['cmyk']['no_effect'][3]}) |
+| BACK ink | `{cfg['palette']['BACK']}` (C{cfg['cmyk']['back'][0]} M{cfg['cmyk']['back'][1]} Y{cfg['cmyk']['back'][2]} K{cfg['cmyk']['back'][3]}) |
+| Ink preflight | {'SAFE' if ink_audit['safe'] else 'BLOCKED'} |
 | Card | {p['card_w_mm']}×{p['card_h_mm']} mm + {p['bleed_mm']}mm bleed |
 | Grid | {p['cols']}×{p['rows']} on {p['page'].replace('_', ' ')} |
 | Card back | `{cfg['card']['back_texture']}` · neutral P seal · {'included' if p['include_back_pages'] else 'not included'} |
@@ -97,20 +120,22 @@ with col_info:
 """)
 with col_btn:
     if st.button("🖶 Generate PDF", type="primary", width="stretch"):
-        try:
-            with st.spinner("Rendering the print-ready PDF…"):
-                pdf_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="pdf")
-                st.session_state["_last_pdf"] = build_pdf_bytes(pdf_html)
-                st.session_state["_last_pdf_config"] = dump_yaml(cfg)
-            st.success(f"PDF ready — {len(st.session_state['_last_pdf']) // 1024} KB")
-        except ImportError:
-            st.error(
-                "WeasyPrint isn't available in this environment (missing system libraries "
-                "like pango/cairo). On Streamlit Community Cloud this is handled automatically "
-                "by packages.txt in this repo. Locally, see README.md → Local setup."
-            )
-        except Exception as exc:  # noqa: BLE001 — surface the real error to the user
-            st.error(f"PDF generation failed: {exc}")
+        if p.get("strict_ink_check", True) and not ink_audit["safe"]:
+            st.error("PDF blocked: resolve the Ink preflight warnings or disable strict checking.")
+        else:
+            try:
+                with st.spinner("Rendering the print-ready PDF…"):
+                    st.session_state["_last_pdf"] = build_pdf_bytes(pdf_html)
+                    st.session_state["_last_pdf_config"] = dump_yaml(cfg)
+                st.success(f"PDF ready — {len(st.session_state['_last_pdf']) // 1024} KB")
+            except ImportError:
+                st.error(
+                    "WeasyPrint isn't available in this environment (missing system libraries "
+                    "like pango/cairo). On Streamlit Community Cloud this is handled automatically "
+                    "by packages.txt in this repo. Locally, see README.md → Local setup."
+                )
+            except Exception as exc:  # noqa: BLE001 — surface the real error to the user
+                st.error(f"PDF generation failed: {exc}")
 
 if "_last_pdf" in st.session_state:
     if st.session_state.get("_last_pdf_config") == dump_yaml(cfg):
@@ -122,12 +147,17 @@ if "_last_pdf" in st.session_state:
         st.info("Settings changed since the last PDF. Generate it again before downloading.")
 
 with st.expander("CMYK recipe (hand this to the litografía)"):
-    effect, no_effect = cfg["cmyk"]["effect"], cfg["cmyk"]["no_effect"]
+    effect, no_effect, back = (
+        cfg["cmyk"]["effect"],
+        cfg["cmyk"]["no_effect"],
+        cfg["cmyk"]["back"],
+    )
     st.code(
         "# P-Hacker CMYK Recipe\n"
         f"EFFECT_CMYK    = ({effect[0]/100:.3f}, {effect[1]/100:.3f}, {effect[2]/100:.3f}, {effect[3]/100:.3f})\n"
         f"NO_EFFECT_CMYK = ({no_effect[0]/100:.3f}, {no_effect[1]/100:.3f}, {no_effect[2]/100:.3f}, {no_effect[3]/100:.3f})\n"
-        f"EFFECT_HEX     = \"{effect_hex}\"\nNO_EFFECT_HEX  = \"{no_effect_hex}\"\n"
+        f"BACK_CMYK      = ({back[0]/100:.3f}, {back[1]/100:.3f}, {back[2]/100:.3f}, {back[3]/100:.3f})\n"
+        f"EFFECT_HEX     = \"{effect_hex}\"\nNO_EFFECT_HEX  = \"{no_effect_hex}\"\nBACK_HEX       = \"{cfg['palette']['BACK']}\"\n"
         f"CARD = {p['card_w_mm']} x {p['card_h_mm']} mm | BLEED = {p['bleed_mm']} mm\n"
         f"GRID = {p['cols']} x {p['rows']}",
         language="text",

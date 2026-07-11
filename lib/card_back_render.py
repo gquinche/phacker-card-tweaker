@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+from .ink_control import css_from_hex, device_cmyk, preview_hex
 from .paper import paper_stock
 
 ASSET_DIR = Path(__file__).resolve().parent.parent / "assets" / "card_backs"
@@ -54,6 +55,7 @@ def pattern_data_uri(token: str, ink: str = "#2b2b2b") -> str:
 def bureau_seal_svg(
     uid: str = "seal",
     paper_hex: str = "#FFFFFF",
+    ink: str = "#2b2b2b",
     numeral: str = "",
 ) -> str:
     """B/W bureau seal; numerals are supported only for on-screen preview."""
@@ -68,32 +70,41 @@ def bureau_seal_svg(
   <defs>
     <path id="{ring_id}" d="M 50 50 m -36,0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"/>
   </defs>
-  <circle cx="50" cy="50" r="43" fill="{paper_hex}" stroke="#000" stroke-width="1.7"/>
-  <circle cx="50" cy="50" r="34" fill="none" stroke="#000" stroke-width="0.9"/>
-  <text font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="5.3" letter-spacing="0.36" fill="#000">
+  <circle cx="50" cy="50" r="43" fill="{paper_hex}" stroke="{ink}" stroke-width="1.7"/>
+  <circle cx="50" cy="50" r="34" fill="none" stroke="{ink}" stroke-width="0.9"/>
+  <text font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="5.3" letter-spacing="0.36" fill="{ink}">
     <textPath href="#{ring_id}" startOffset="0">{SEAL_RING_TEXT}</textPath>
   </text>
-  <text x="50" y="52" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="{mark_size}" letter-spacing="{letter_spacing}" text-anchor="middle" dominant-baseline="central" fill="#000">{center_mark}</text>
+  <text x="50" y="52" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="{mark_size}" letter-spacing="{letter_spacing}" text-anchor="middle" dominant-baseline="central" fill="{ink}">{center_mark}</text>
 </svg>
 """.strip()
 
 
-def card_back_css(cfg: dict, token: str) -> str:
-    """CSS port of simplified-ui's sealed-card-back treatment."""
-    pattern_uri = pattern_data_uri(token)
+def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
+    """CSS port of simplified-ui's back using one assigned BACK ink in PDF."""
+    use_cmyk = cfg["print"].get("use_cmyk", True)
+    ink = device_cmyk(cfg, "back") if target == "pdf" and use_cmyk else preview_hex(cfg, "back")
+    pattern_uri = pattern_data_uri(token, ink)
     paper = paper_stock(cfg["card"]["paper"])
+    paper_color = css_from_hex(paper["hex"], target, use_cmyk)
     print_w = cfg["print"]["card_w_mm"]
     print_h = cfg["print"]["card_h_mm"]
+    back_background = paper_color if target == "pdf" else (
+        "radial-gradient(ellipse at 50% 42%, rgba(255,255,255,0.55) 0%, "
+        f"rgba(255,255,255,0) 58%), {paper_color}"
+    )
+    back_shadow = "none" if target == "pdf" else (
+        "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), "
+        "inset 0 1px 0 rgba(255,255,255,0.55)"
+    )
     return f"""
 .tw-card-back {{
   position:relative;
   overflow:hidden;
-  background:
-    radial-gradient(ellipse at 50% 42%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 58%),
-    {paper["hex"]};
-  border:2px solid #2b2b2b;
+  background:{back_background};
+  border:2px solid {ink};
   border-radius:12px;
-  box-shadow:0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,250,235,0.55);
+  box-shadow:{back_shadow};
   font-family:'DejaVu Serif', Georgia, serif;
 }}
 .tw-card-back--hand {{ width:234px; height:327px; }}
@@ -101,11 +112,11 @@ def card_back_css(cfg: dict, token: str) -> str:
 .tw-card-back--print {{ width:{print_w}mm; height:{print_h}mm; }}
 .tw-card-back::before {{
   content:''; position:absolute; inset:4px; z-index:1; pointer-events:none;
-  border:0.8px solid #b1924e; border-radius:10px;
+  border:0.8px solid {ink}; border-radius:10px;
 }}
 .tw-card-back::after {{
   content:''; position:absolute; inset:7px; z-index:1; pointer-events:none;
-  border:0.6px solid rgba(43,43,43,0.5); border-radius:9px;
+  border:0.6px solid {ink}; border-radius:9px;
 }}
 .tw-card-back__pattern {{
   position:absolute; inset:0; z-index:0; pointer-events:none;
@@ -119,7 +130,7 @@ def card_back_css(cfg: dict, token: str) -> str:
 .tw-card-back__seal {{ width:100%; height:100%; display:block; }}
 .tw-card-back__id {{
   position:absolute; right:5px; top:4px; z-index:2;
-  color:rgba(43,43,43,0.35); font:5pt 'DejaVu Sans Mono','Courier New',monospace;
+  color:{ink}; font:5pt 'DejaVu Sans Mono','Courier New',monospace;
 }}
 """
 
@@ -132,14 +143,19 @@ def render_card_back_html(
     card_id: str = "",
     uid: str = "",
     preview_numeral: str = "",
+    target: str = "preview",
 ) -> str:
     """Render a card back; preview numerals are never supplied by print pages."""
     resolved = _resolved_token(token)
     id_html = f'<span class="tw-card-back__id">{card_id}</span>' if card_id else ""
     paper = paper_stock(cfg["card"]["paper"])
+    use_cmyk = cfg["print"].get("use_cmyk", True)
+    paper_color = css_from_hex(paper["hex"], target, use_cmyk)
+    ink = device_cmyk(cfg, "back") if target == "pdf" and use_cmyk else preview_hex(cfg, "back")
     seal = bureau_seal_svg(
         uid=uid or card_id or "preview",
-        paper_hex=paper["hex"],
+        paper_hex=paper_color,
+        ink=ink,
         numeral=preview_numeral,
     )
     return f"""
