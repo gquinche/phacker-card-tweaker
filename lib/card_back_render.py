@@ -23,7 +23,7 @@ CARD_BACK_OPTIONS: dict[str, dict[str, str]] = {
     "tex-guilloche": {"label": "Experimental · Guilloche", "tier": "experimental"},
 }
 DEFAULT_CARD_BACK = "tex-chevron"
-ROMAN_NUMERALS = ("I", "II", "III", "IV", "V")
+SEAL_RING_TEXT = "DEPARTMENT OF REPRODUCIBILITY · DEPARTMENT OF REPRODUCIBILITY ·"
 
 
 def card_back_tokens() -> list[str]:
@@ -46,6 +46,25 @@ def pattern_data_uri(token: str, ink: str = "#2b2b2b") -> str:
     svg = svg.replace("#000000", ink).replace("#000", ink).replace("currentColor", ink)
     encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
     return f"data:image/svg+xml;base64,{encoded}"
+
+
+def bureau_seal_svg(uid: str = "seal", center_text: str = "P") -> str:
+    """B/W bureau seal adapted from the approved attached print prototype."""
+    safe_uid = "".join(char if char.isalnum() else "-" for char in uid)
+    ring_id = f"bureau-ring-{safe_uid}"
+    return f"""
+<svg class="tw-card-back__seal" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <path id="{ring_id}" d="M 50 50 m -36,0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"/>
+  </defs>
+  <circle cx="50" cy="50" r="43" fill="#F2ECE0" stroke="#000" stroke-width="1.7"/>
+  <circle cx="50" cy="50" r="34" fill="none" stroke="#000" stroke-width="0.9"/>
+  <text font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="5.3" letter-spacing="0.36" fill="#000">
+    <textPath href="#{ring_id}" startOffset="0">{SEAL_RING_TEXT}</textPath>
+  </text>
+  <text x="50" y="52" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="34" text-anchor="middle" dominant-baseline="central" fill="#000">{center_text}</text>
+</svg>
+""".strip()
 
 
 def card_back_css(cfg: dict, token: str) -> str:
@@ -81,35 +100,11 @@ def card_back_css(cfg: dict, token: str) -> str:
   background-image:url('{pattern_uri}');
   background-repeat:repeat; background-size:auto; opacity:0.10;
 }}
-.tw-card-back__cartouche {{
-  position:absolute; left:50%; top:50%; width:52%; height:30%;
-  transform:translate(-50%,-54%); z-index:1; pointer-events:none;
-  background:#F2ECE0; border:1.6px solid #2b2b2b; border-radius:12px;
+.tw-card-back__seal-wrap {{
+  position:absolute; left:50%; top:50%; width:72%; aspect-ratio:1;
+  transform:translate(-50%,-50%); z-index:2; pointer-events:none;
 }}
-.tw-card-back__cartouche::before {{
-  content:''; position:absolute; inset:4px; border:0.7px solid #b1924e; border-radius:2px;
-}}
-.tw-card-back__cartouche::after {{
-  content:''; position:absolute; inset:10px; pointer-events:none;
-  background:
-    linear-gradient(#2b2b2b,#2b2b2b) left top / 1px 8px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) left top / 8px 1px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) right top / 1px 8px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) right top / 8px 1px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) left bottom / 1px 8px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) left bottom / 8px 1px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) right bottom / 1px 8px no-repeat,
-    linear-gradient(#2b2b2b,#2b2b2b) right bottom / 8px 1px no-repeat;
-}}
-.tw-card-back__numeral {{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-58%);
-  z-index:2; color:#2b2b2b; font-size:22px; font-weight:700; letter-spacing:2px;
-}}
-.tw-card-back__label {{
-  position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:2;
-  color:rgba(117,117,117,0.55); font-family:'DejaVu Sans Mono','Courier New',monospace;
-  font-size:8px; letter-spacing:0.35em; text-transform:uppercase; white-space:nowrap;
-}}
+.tw-card-back__seal {{ width:100%; height:100%; display:block; }}
 .tw-card-back__id {{
   position:absolute; right:5px; top:4px; z-index:2;
   color:rgba(43,43,43,0.35); font:5pt 'DejaVu Sans Mono','Courier New',monospace;
@@ -122,26 +117,24 @@ def render_card_back_html(
     cfg: dict,
     token: str,
     size: str = "verdict",
-    numeral: str = "I",
     card_id: str = "",
+    uid: str = "",
 ) -> str:
-    """Render one card-back element using the chosen real SVG motif."""
+    """Render a neutral print-safe back: motif + identical P bureau seal."""
     resolved = _resolved_token(token)
-    numeral = numeral if numeral in ROMAN_NUMERALS else "I"
     id_html = f'<span class="tw-card-back__id">{card_id}</span>' if card_id else ""
+    seal = bureau_seal_svg(uid=uid or card_id or "preview")
     return f"""
 <div class="tw-card-back tw-card-back--{size}" data-texture="{resolved}">
   <div class="tw-card-back__pattern" aria-hidden="true"></div>
-  <div class="tw-card-back__cartouche" aria-hidden="true"></div>
-  <div class="tw-card-back__numeral">{numeral}</div>
-  <div class="tw-card-back__label">P HACKER GAME</div>
+  <div class="tw-card-back__seal-wrap">{seal}</div>
   {id_html}
 </div>
 """.strip()
 
 
-def render_card_back_preview_html(cfg: dict, token: str, size: str, numeral: str) -> str:
-    card = render_card_back_html(cfg=cfg, token=token, size=size, numeral=numeral)
+def render_card_back_preview_html(cfg: dict, token: str, size: str) -> str:
+    card = render_card_back_html(cfg=cfg, token=token, size=size)
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 * {{ box-sizing:border-box; }}
 body {{ margin:0; padding:16px; background:#d7d4ce; }}

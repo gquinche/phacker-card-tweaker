@@ -40,7 +40,6 @@ FALLBACK_CONFIG: dict = {
         "paper": "cream",           # cream | white | manila
         "chart_opacity": 0.6,
         "back_texture": "tex-chevron",
-        "back_numeral": "I",
         "wash_alpha_sig": 0.18,     # real shipped .print-card--significant wash
         "wash_alpha_null": 0.16,   # real shipped .print-card--null wash
         "show_footer": False,

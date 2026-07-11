@@ -296,15 +296,13 @@ def render_print_atlas_html(
     def build_back_page(copy_index: int) -> str:
         n = cols * rows
         token = cfg["card"].get("back_texture", "tex-chevron")
-        numeral = cfg["card"].get("back_numeral", "I")
         cells = []
         for i in range(n):
             card_html = render_card_back_html(
                 cfg=cfg,
                 token=token,
                 size="print",
-                numeral=numeral,
-                card_id=f"B{copy_index}-{i:02d}" if p.get("show_card_id", True) else "",
+                uid=f"back-{copy_index}-{i}",
             )
             cells.append(f'<div class="tw-cell">{card_html}</div>')
         grid_w = cols * cell_w

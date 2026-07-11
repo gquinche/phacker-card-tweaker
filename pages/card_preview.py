@@ -35,7 +35,6 @@ st.iframe(
         cfg,
         cfg["card"]["back_texture"],
         size,
-        cfg["card"]["back_numeral"],
     ),
     height=card_h + 40,
 )

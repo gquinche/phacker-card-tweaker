@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lib.card_back_render import ROMAN_NUMERALS, card_back_label, card_back_tokens
+from lib.card_back_render import card_back_label, card_back_tokens
 from lib.config_io import dump_yaml, load_defaults, load_from_yaml_text
 from lib.editor_state import current_config, initialize_editor, load_config_into_widgets
 
@@ -64,7 +64,6 @@ with st.sidebar:
         "SVG motif", card_back_tokens(), key="card_back_texture", format_func=card_back_label,
         help="Real assets copied from phacker-game experiment/simplified-ui.",
     )
-    st.selectbox("Deck numeral", list(ROMAN_NUMERALS), key="card_back_numeral")
 
     st.divider()
 

@@ -23,7 +23,6 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "band_pct": ("band_pct",),
     "card_chart_opacity": ("card", "chart_opacity"),
     "card_back_texture": ("card", "back_texture"),
-    "card_back_numeral": ("card", "back_numeral"),
     "card_show_footer": ("card", "show_footer"),
     "card_show_stamp": ("card", "show_stamp"),
     "card_show_creases": ("card", "show_creases"),
