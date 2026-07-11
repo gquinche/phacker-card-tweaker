@@ -77,19 +77,6 @@ def channel_rows(cfg: dict) -> list[dict[str, object]]:
     return rows
 
 
-def ck_plane_rows(step: int = 5) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for c in range(0, 101, step):
-        for k in range(0, 101, step):
-            rows.append({
-                "C": c,
-                "K": k,
-                "hex": cmyk_to_hex(c, 0, 0, k),
-                "label": f"C{c} K{k}",
-            })
-    return rows
-
-
 def rgb_hex_to_cmyk(value: str) -> tuple[float, float, float, float]:
     r, g, b = hex_to_rgb01(value)
     k = 1 - max(r, g, b)

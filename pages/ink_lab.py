@@ -5,6 +5,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from lib.ck_picker import ck_ink_picker
 from lib.editor_state import current_config
 from lib.ink_control import (
     CHANNELS,
@@ -12,7 +13,6 @@ from lib.ink_control import (
     PAGE_LABELS,
     allowed_channels,
     channel_rows,
-    ck_plane_rows,
     device_cmyk,
     preview_hex,
 )
@@ -34,40 +34,23 @@ channel_keys = {channel: f"{key_prefix}_{channel.lower()}" for channel in CHANNE
 policy_key = f"{key_prefix}_allowed_channels"
 
 cfg = current_config()
-plane = pd.DataFrame(ck_plane_rows(step=5))
-selector = alt.selection_point(
-    name="ink_pick",
-    fields=["C", "K"],
-    on="click",
-    clear=False,
+component_key = f"ck_picker_{page}"
+
+
+def _sync_picker_recipe() -> None:
+    component_state = st.session_state.get(component_key, {})
+    picked = component_state.get("recipe") if isinstance(component_state, dict) else None
+    if isinstance(picked, list) and len(picked) == 4:
+        for channel, value in zip(CHANNELS, picked):
+            st.session_state[channel_keys[channel]] = int(value)
+
+
+ck_ink_picker(
+    PAGE_LABELS[page],
+    [int(st.session_state[channel_keys[channel]]) for channel in CHANNELS],
+    key=component_key,
+    on_change=_sync_picker_recipe,
 )
-base = (
-    alt.Chart(plane)
-    .mark_square(size=150)
-    .encode(
-        x=alt.X("C:Q", title="Cyan coverage (%)", scale=alt.Scale(domain=[0, 100])),
-        y=alt.Y("K:Q", title="Black coverage (%)", scale=alt.Scale(domain=[100, 0])),
-        color=alt.Color("hex:N", scale=None, legend=None),
-        tooltip=["label:N", "hex:N"],
-        opacity=alt.condition(selector, alt.value(1), alt.value(0.76)),
-        stroke=alt.condition(selector, alt.value("#e11d48"), alt.value("#ffffff")),
-        strokeWidth=alt.condition(selector, alt.value(3), alt.value(0.35)),
-    )
-    .add_params(selector)
-)
-event = st.altair_chart(
-    base,
-    key=f"ink_plane_{page}",
-    on_select="rerun",
-    selection_mode="ink_pick",
-    use_container_width=True,
-)
-selected = event.selection.get("ink_pick", []) if event else []
-if selected:
-    picked = selected[-1] if isinstance(selected, list) else selected
-    if isinstance(picked, dict) and "C" in picked and "K" in picked:
-        st.session_state[channel_keys["C"]] = int(picked["C"])
-        st.session_state[channel_keys["K"]] = int(picked["K"])
 
 st.caption("Exact recipe")
 columns = st.columns(4)

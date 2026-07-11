@@ -33,7 +33,8 @@ lib/
   card_back_render.py     simplified-ui card backs from real SVG motifs, browser + PDF
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
-  ink_control.py           page recipes, C/K picker data, histogram + foreign-ink audit
+  ink_control.py           page recipes, histogram + foreign-ink audit
+  ck_picker.py             bidirectional JS Canvas + browser color picker component
   paper.py                 one shared front/back paper-stock palette (white default)
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
@@ -81,8 +82,9 @@ Guilloche was authored for P-Hacker. See `assets/card_backs/README.md`.
 ### Ink Lab and strict print preflight
 
 Ink Lab owns separate EFFECT, NO EFFECT, and BACK CMYK recipes. It provides exact
-C/M/Y/K sliders, allowed-channel policies, a clickable Cyan-versus-Black plane,
-and a faceted channel-coverage histogram. PDF rendering uses each page's assigned
+C/M/Y/K sliders, allowed-channel policies, a real JavaScript Canvas Cyan-versus-Black
+picker plus native browser color input (Streamlit components v2), and a faceted
+channel-coverage histogram. PDF rendering uses each page's assigned
 `device-cmyk()` recipe and strips warm paper aging, gold back rules, and shadow
 colors from the print target. Print Atlas audits the actual generated page markup;
 when strict preflight is enabled, any color that activates a channel outside that
