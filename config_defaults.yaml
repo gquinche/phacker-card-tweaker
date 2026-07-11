@@ -11,8 +11,8 @@
 # like back into the chart function bodies by hand.
 
 palette:
-  SIG: "#426183"    # EFFECT/TRUE band + chart ink
-  NULL: "#767676"   # NO EFFECT/FALSE band + chart ink
+  SIG: "#426183"    # EFFECT band + chart ink
+  NULL: "#767676"   # NO EFFECT band + chart ink
 
 # CMYK ink recipe — hand this to the litografía, and it's also what the PDF
 # export writes directly into the file via CSS device-cmyk() (WeasyPrint
@@ -117,7 +117,7 @@ chart_params:
 card:
   paper: cream              # cream | white | manila
   chart_opacity: 0.6        # real .print-card__chart opacity (simplified-ui)
-  show_footer: true
+  show_footer: false
   show_stamp: true
   show_creases: true
 

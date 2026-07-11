@@ -18,7 +18,7 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
 ```
 app.py                 entry point — st.navigation/st.Page, shared sidebar (YAML import/export)
 pages/
-  chart_lab.py          per-chart-type tuning, raw chart + real card side by side (@st.fragment)
+  chart_lab.py          per-chart-type tuning with ordinary keyed Streamlit widgets
   card_preview.py        full gallery, every chart type × both findings, at real card size
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (WeasyPrint)
   config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
@@ -30,6 +30,7 @@ lib/
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
   card_render.py          THE single card/atlas HTML+CSS template + the WeasyPrint PDF builder
   config_io.py            YAML load/save/merge, page-size table
+  editor_state.py          keyed widget values -> render/export config snapshot
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
 config_defaults.yaml     starting values — `palette`/`hatch` keys mirror the real repo's dicts;
@@ -48,9 +49,10 @@ reliable about the print output. `lib/card_render.py` now renders **one**
 HTML/CSS card (`.tw-card`, deliberately named to echo the real
 `.print-card` family in `src/styles/game-cards.css`) that both the live
 preview (`st.iframe`, a real browser) and the PDF (WeasyPrint)
-consume. Layout, proportions, band %, chart opacity, and wash alpha are
-identical between the two. The **only** thing that differs by target is how
-color is *expressed*:
+consume. The browser atlas shows the same white paper sheets, page dimensions,
+grid, bleed cells, and card placement as the PDF. Layout, proportions, band %,
+and chart opacity are identical between the two. The **only** thing that
+differs by target is how color is *expressed*:
 
 - Preview → hex (`#426183`) — no browser understands CSS `device-cmyk()`.
 - PDF → `device-cmyk(50% 26% 0% 49%)` — written into the PDF as literal CMYK.

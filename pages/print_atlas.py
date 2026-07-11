@@ -1,11 +1,8 @@
-"""Print Atlas & PDF — configure the print sheet (page size, grid, bleed),
-preview it live, and generate a real print-ready PDF via WeasyPrint with
-true CMYK ink values written into the file (device-cmyk(), WeasyPrint>=67).
+"""Paper-sheet preview and PDF export from ordinary keyed widget values.
 
-The preview and the PDF are built from the exact same
-lib.card_render.render_print_atlas_html() — the only difference is the color
-expression (hex for the on-screen preview, device-cmyk() for the PDF), since
-no browser understands device-cmyk() but WeasyPrint does.
+The browser and PDF share one mm-based atlas layout. The browser target uses
+hex colors; the PDF target applies device-CMYK when enabled. No fragment or
+render cache sits between a slider value and the generated output.
 """
 from __future__ import annotations
 
@@ -13,49 +10,62 @@ import streamlit as st
 
 from lib import chart_generators as cg
 from lib.card_render import build_pdf_bytes, render_print_atlas_html
-from lib.colors import cmyk_to_hex
 from lib.config_io import PAGE_SIZES_MM, dump_yaml
+from lib.editor_state import current_config, ensure_widget_value
 
 st.title("🖨️ Print Atlas & PDF")
 st.caption(
-    "One page of TRUE cards, one page of FALSE cards, laid out with bleed. "
-    "Same layout for the live preview below and the exported PDF."
+    "A browser preview of the real paper sheets, followed by the same layout "
+    "exported as PDF with CMYK corrections."
 )
 
-cfg = st.session_state.cfg
+cfg = current_config()
 p = cfg["print"]
+for key, value in {
+    "print_cols": int(p["cols"]),
+    "print_rows": int(p["rows"]),
+    "print_page": p["page"],
+    "print_card_w_mm": float(p["card_w_mm"]),
+    "print_card_h_mm": float(p["card_h_mm"]),
+    "print_bleed_mm": float(p["bleed_mm"]),
+    "print_use_cmyk": p["use_cmyk"],
+    "print_show_calibration_strip": p["show_calibration_strip"],
+    "print_show_card_id": p["show_card_id"],
+}.items():
+    ensure_widget_value(key, value)
 
 with st.sidebar:
     st.subheader("Page layout")
     c1, c2 = st.columns(2)
     with c1:
-        p["cols"] = st.number_input("Columns", 1, 8, int(p["cols"]))
+        st.number_input("Columns", 1, 8, step=1, key="print_cols")
     with c2:
-        p["rows"] = st.number_input("Rows", 1, 8, int(p["rows"]))
-    p["page"] = st.selectbox(
-        "Page size", list(PAGE_SIZES_MM.keys()),
-        list(PAGE_SIZES_MM.keys()).index(p["page"]),
-        format_func=lambda k: k.replace("_", " ").title(),
+        st.number_input("Rows", 1, 8, step=1, key="print_rows")
+    st.selectbox(
+        "Page size", list(PAGE_SIZES_MM.keys()), key="print_page",
+        format_func=lambda value: value.replace("_", " ").title(),
     )
 
     st.subheader("Card size")
     cc1, cc2 = st.columns(2)
     with cc1:
-        p["card_w_mm"] = st.number_input("Width (mm)", 25.0, 80.0, float(p["card_w_mm"]), 0.01)
+        st.number_input("Width (mm)", 25.0, 80.0, step=0.01, key="print_card_w_mm")
     with cc2:
-        p["card_h_mm"] = st.number_input("Height (mm)", 40.0, 120.0, float(p["card_h_mm"]), 0.01)
-    p["bleed_mm"] = st.number_input("Bleed (mm)", 0.0, 5.0, float(p["bleed_mm"]), 0.5)
+        st.number_input("Height (mm)", 40.0, 120.0, step=0.01, key="print_card_h_mm")
+    st.number_input("Bleed (mm)", 0.0, 5.0, step=0.5, key="print_bleed_mm")
 
     st.subheader("Color")
-    p["use_cmyk"] = st.checkbox(
-        "Write true CMYK into the PDF (device-cmyk())", p["use_cmyk"],
-        help="Needs weasyprint>=67. Off = plain RGB-approximation PDF (still same layout).",
+    st.checkbox(
+        "Write true CMYK into the PDF (device-cmyk())", key="print_use_cmyk",
+        help="The browser sheet preview always uses hex. This correction applies only to the PDF.",
     )
-    p["show_calibration_strip"] = st.checkbox("Calibration strip (for print-scale checks)", p["show_calibration_strip"])
-    p["show_card_id"] = st.checkbox("Card ID stamps", p["show_card_id"])
+    st.checkbox("Calibration strip (for print-scale checks)", key="print_show_calibration_strip")
+    st.checkbox("Card ID stamps", key="print_show_card_id")
 
-    zoom = st.slider("Preview zoom", 20, 100, 45, 5)
-
+# Collect after declaring the page-specific controls so this snapshot includes
+# exactly what the user sees in the widgets.
+cfg = current_config()
+p = cfg["print"]
 cell_w = p["card_w_mm"] + p["bleed_mm"] * 2
 cell_h = p["card_h_mm"] + p["bleed_mm"] * 2
 page_w, page_h = PAGE_SIZES_MM[p["page"]]
@@ -64,50 +74,27 @@ fit_rows = int(page_h // cell_h)
 st.info(
     f"Cell {cell_w:.1f}×{cell_h:.1f} mm on a {page_w:.0f}×{page_h:.0f} mm page — "
     f"fits up to {fit_cols}×{fit_rows} = {fit_cols * fit_rows} cards/page "
-    f"(currently set to {p['cols']}×{p['rows']} = {p['cols'] * p['rows']})."
+    f"(currently {p['cols']}×{p['rows']} = {p['cols'] * p['rows']})."
 )
 
-e_hex = cmyk_to_hex(*cfg["cmyk"]["effect"])
-n_hex = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
+effect_hex = cfg["palette"]["SIG"]
+no_effect_hex = cfg["palette"]["NULL"]
+seed_count = int(cfg["seeds_per_type"])
+effect_svgs = [
+    cg.render_svg_bare(name, True, seed, cfg, effect_hex)
+    for name in cg.all_chart_names()
+    for seed in range(seed_count)
+]
+no_effect_svgs = [
+    cg.render_svg_bare(name, False, seed, cfg, no_effect_hex)
+    for name in cg.all_chart_names()
+    for seed in range(seed_count)
+]
 
-
-@st.cache_data(show_spinner=False)
-def _svg_pool(seeds_per_type: int, cfg_fingerprint: str, e_hex_: str, n_hex_: str):
-    sig = [cg.render_svg_bare(name, True, s, cfg, e_hex_) for name in cg.all_chart_names() for s in range(seeds_per_type)]
-    nul = [cg.render_svg_bare(name, False, s, cfg, n_hex_) for name in cg.all_chart_names() for s in range(seeds_per_type)]
-    return sig, nul
-
-
-# Cheap fingerprint so the cache invalidates when chart-affecting params change
-# (cache key must be hashable; cfg itself has nested lists/dicts so we don't
-# pass it directly). chart_params covers every chart type now, not just
-# synthetic_control's old `syn` dict.
-_fingerprint = f"{cfg['hatch']}{cfg['hatch_lw']}{cfg['chart_params']}{cfg['dpi']}"
-sig_svgs, null_svgs = _svg_pool(int(cfg["seeds_per_type"]), _fingerprint, e_hex, n_hex)
-
-
-@st.fragment
-def atlas_preview():
-    preview_html = render_print_atlas_html(cfg, sig_svgs, null_svgs)
-    # Give the user a zero-dependency "print via browser" escape hatch too —
-    # same trick the original calibrator prototype used, scoped to just this
-    # iframe's own content via @media print + window.print().
-    printable = preview_html.replace(
-        "</body>",
-        '<div style="position:fixed;top:8px;right:8px;z-index:99" class="no-print">'
-        '<button onclick="window.print()" style="background:#426183;color:#fff;border:none;'
-        'padding:8px 14px;border-radius:4px;cursor:pointer;font-family:sans-serif;font-size:12px;'
-        'font-weight:700;">🖨 Print this atlas</button></div>'
-        "<style>@media print { .no-print { display:none !important; } }</style></body>",
-    )
-    scaled = (
-        f'<div style="transform:scale({zoom / 100});transform-origin:top left;'
-        f'background:#2a2825;padding:20px;">{printable}</div>'
-    )
-    st.iframe(scaled, height=int(page_h * 3.78 * zoom / 100) + 120)
-
-
-atlas_preview()
+st.subheader("Paper preview")
+st.caption("White sheets are the physical paper area; dashed cells include each card's bleed.")
+preview_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="preview")
+st.iframe(preview_html, height="content")
 
 st.divider()
 col_info, col_btn = st.columns([3, 1])
@@ -115,20 +102,20 @@ with col_info:
     st.markdown(f"""
 | Setting | Value |
 |---|---|
-| TRUE ink | `{e_hex}` (device-cmyk: C{cfg['cmyk']['effect'][0]} M{cfg['cmyk']['effect'][1]} Y{cfg['cmyk']['effect'][2]} K{cfg['cmyk']['effect'][3]}) |
-| FALSE ink | `{n_hex}` (device-cmyk: C{cfg['cmyk']['no_effect'][0]} M{cfg['cmyk']['no_effect'][1]} Y{cfg['cmyk']['no_effect'][2]} K{cfg['cmyk']['no_effect'][3]}) |
+| EFFECT ink | `{effect_hex}` (C{cfg['cmyk']['effect'][0]} M{cfg['cmyk']['effect'][1]} Y{cfg['cmyk']['effect'][2]} K{cfg['cmyk']['effect'][3]}) |
+| NO EFFECT ink | `{no_effect_hex}` (C{cfg['cmyk']['no_effect'][0]} M{cfg['cmyk']['no_effect'][1]} Y{cfg['cmyk']['no_effect'][2]} K{cfg['cmyk']['no_effect'][3]}) |
 | Card | {p['card_w_mm']}×{p['card_h_mm']} mm + {p['bleed_mm']}mm bleed |
 | Grid | {p['cols']}×{p['rows']} on {p['page'].replace('_', ' ')} |
-| Faces | {len(cg.all_chart_names())} chart types × {cfg['seeds_per_type']} seeds = {len(sig_svgs)} distinct cards/finding |
+| Faces | {len(cg.all_chart_names())} chart types × {seed_count} seeds = {len(effect_svgs)} distinct cards/finding |
 """)
 with col_btn:
     if st.button("🖶 Generate PDF", type="primary", width="stretch"):
         try:
             with st.spinner("Rendering the print-ready PDF…"):
-                html = render_print_atlas_html(cfg, sig_svgs, null_svgs)
-                pdf_bytes = build_pdf_bytes(html)
-            st.session_state["_last_pdf"] = pdf_bytes
-            st.success(f"PDF ready — {len(pdf_bytes) // 1024} KB")
+                pdf_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="pdf")
+                st.session_state["_last_pdf"] = build_pdf_bytes(pdf_html)
+                st.session_state["_last_pdf_config"] = dump_yaml(cfg)
+            st.success(f"PDF ready — {len(st.session_state['_last_pdf']) // 1024} KB")
         except ImportError:
             st.error(
                 "WeasyPrint isn't available in this environment (missing system libraries "
@@ -139,18 +126,21 @@ with col_btn:
             st.error(f"PDF generation failed: {exc}")
 
 if "_last_pdf" in st.session_state:
-    st.download_button(
-        "📥 Download PDF", st.session_state["_last_pdf"], "phacker-print-cards.pdf",
-        "application/pdf", width="stretch",
-    )
+    if st.session_state.get("_last_pdf_config") == dump_yaml(cfg):
+        st.download_button(
+            "📥 Download PDF", st.session_state["_last_pdf"], "phacker-print-cards.pdf",
+            "application/pdf", width="stretch",
+        )
+    else:
+        st.info("Settings changed since the last PDF. Generate it again before downloading.")
 
 with st.expander("CMYK recipe (hand this to the litografía)"):
-    e, n = cfg["cmyk"]["effect"], cfg["cmyk"]["no_effect"]
+    effect, no_effect = cfg["cmyk"]["effect"], cfg["cmyk"]["no_effect"]
     st.code(
         "# P-Hacker CMYK Recipe\n"
-        f"TRUE_CMYK  = ({e[0]/100:.3f}, {e[1]/100:.3f}, {e[2]/100:.3f}, {e[3]/100:.3f})\n"
-        f"FALSE_CMYK = ({n[0]/100:.3f}, {n[1]/100:.3f}, {n[2]/100:.3f}, {n[3]/100:.3f})\n"
-        f"TRUE_HEX   = \"{e_hex}\"\nFALSE_HEX  = \"{n_hex}\"\n"
+        f"EFFECT_CMYK    = ({effect[0]/100:.3f}, {effect[1]/100:.3f}, {effect[2]/100:.3f}, {effect[3]/100:.3f})\n"
+        f"NO_EFFECT_CMYK = ({no_effect[0]/100:.3f}, {no_effect[1]/100:.3f}, {no_effect[2]/100:.3f}, {no_effect[3]/100:.3f})\n"
+        f"EFFECT_HEX     = \"{effect_hex}\"\nNO_EFFECT_HEX  = \"{no_effect_hex}\"\n"
         f"CARD = {p['card_w_mm']} x {p['card_h_mm']} mm | BLEED = {p['bleed_mm']} mm\n"
         f"GRID = {p['cols']} x {p['rows']}",
         language="text",

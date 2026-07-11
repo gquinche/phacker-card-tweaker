@@ -5,9 +5,10 @@ from __future__ import annotations
 import streamlit as st
 
 from lib.config_io import dump_yaml, load_defaults
+from lib.editor_state import current_config, load_config_into_widgets
 
 st.title("⚙️ Config")
-cfg = st.session_state.cfg
+cfg = current_config()
 
 st.markdown(
     "This YAML is the single source of tunable values for both the card look and the print "
@@ -26,9 +27,10 @@ with col2:
         "📥 Export YAML", dump_yaml(cfg), "phacker_card_config.yaml", "text/yaml",
         width="stretch",
     )
-    if st.button("↺ Reset to defaults", width="stretch"):
-        st.session_state.cfg = load_defaults()
-        st.rerun()
+    st.button(
+        "↺ Reset to defaults", width="stretch",
+        on_click=load_config_into_widgets, args=(load_defaults(),),
+    )
 
 st.divider()
 st.subheader("Where this plugs into phacker-game")

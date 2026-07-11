@@ -4,9 +4,9 @@ Single pipeline: tune chart + card params, preview the REAL card look
 (same HTML/CSS as the print PDF), then export (1) a YAML config to back up
 into phacker-game/tools/card-art/ and (2) a print-ready CMYK PDF atlas.
 
-Uses Streamlit's multipage `st.navigation`/`st.Page` (each page below owns one
-concern) and `@st.fragment` inside the pages for snappy live-tuning without a
-full-app rerun on every slider tweak. See README.md for the full picture.
+Uses Streamlit's multipage `st.navigation`/`st.Page`. Normal keyed widgets own
+the live values; render and export collect those values into a config snapshot.
+See README.md for the full picture.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from __future__ import annotations
 import streamlit as st
 
 from lib.config_io import dump_yaml, load_defaults, load_from_yaml_text
+from lib.editor_state import current_config, initialize_editor, load_config_into_widgets
 
 st.set_page_config(
     page_title="P-Hacker Card Tweaker",
@@ -22,35 +23,40 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-if "cfg" not in st.session_state:
-    st.session_state.cfg = load_defaults()
+initialize_editor(load_defaults())
+
+
+def _import_config() -> None:
+    """Replace normal widget state once when a new YAML file is uploaded."""
+    uploaded = st.session_state.get("cfg_upload")
+    if uploaded is None:
+        return
+    load_config_into_widgets(load_from_yaml_text(uploaded.getvalue().decode("utf-8")))
+    st.session_state["_config_imported"] = True
+
 
 with st.sidebar:
     st.title("🃏 P-Hacker Card Tweaker")
     st.caption("Tune → preview the real card look → export YAML + a print-ready CMYK PDF.")
 
-    uploaded = st.file_uploader("Import config YAML", type=["yaml", "yml"], key="cfg_upload")
-    if uploaded is not None:
-        st.session_state.cfg = load_from_yaml_text(uploaded.read().decode("utf-8"))
+    st.file_uploader(
+        "Import config YAML", type=["yaml", "yml"], key="cfg_upload", on_change=_import_config,
+    )
+    if st.session_state.pop("_config_imported", False):
         st.success("Config loaded.")
 
     st.divider()
 
-    # Paper stock + card chrome — global controls, visible from every page
     st.subheader("🃏 Card Chrome")
-    cfg = st.session_state.cfg
-    cfg["card"]["paper"] = st.selectbox(
-        "Paper stock", ["cream", "white", "manila"],
-        ["cream", "white", "manila"].index(cfg["card"]["paper"]),
-    )
-    cfg["band_pct"] = st.slider("Band height %", 14, 30, int(cfg["band_pct"]), 1)
-    cfg["card"]["chart_opacity"] = st.slider(
-        "Chart opacity", 0.1, 1.0, float(cfg["card"]["chart_opacity"]), 0.05,
+    st.selectbox("Paper stock", ["cream", "white", "manila"], key="card_paper")
+    st.slider("Band height %", 14, 30, key="band_pct")
+    st.slider(
+        "Chart opacity", 0.1, 1.0, step=0.05, key="card_chart_opacity",
         help="Real shipped value is 0.6 — the chart is background texture, not the focal point.",
     )
-    cfg["card"]["show_footer"] = st.checkbox("Typewriter footer (n=/p=)", cfg["card"]["show_footer"])
-    cfg["card"]["show_stamp"] = st.checkbox("Bureau stamp", cfg["card"]["show_stamp"])
-    cfg["card"]["show_creases"] = st.checkbox("Fold creases", cfg["card"]["show_creases"])
+    st.checkbox("Typewriter footer (n=/p=)", key="card_show_footer")
+    st.checkbox("Bureau stamp", key="card_show_stamp")
+    st.checkbox("Fold creases", key="card_show_creases")
 
     st.divider()
 
@@ -63,7 +69,7 @@ pages = [
 pg = st.navigation(pages)
 
 with st.sidebar:
-    yaml_text = dump_yaml(st.session_state.cfg)
+    yaml_text = dump_yaml(current_config())
     st.download_button(
         "📥 Export YAML", yaml_text, "phacker_card_config.yaml", "text/yaml",
         width="stretch",
