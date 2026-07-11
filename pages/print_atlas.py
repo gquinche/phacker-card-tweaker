@@ -11,28 +11,13 @@ import streamlit as st
 from lib import chart_generators as cg
 from lib.card_render import build_pdf_bytes, render_print_atlas_html
 from lib.config_io import PAGE_SIZES_MM, dump_yaml
-from lib.editor_state import current_config, ensure_widget_value
+from lib.editor_state import current_config
 
 st.title("🖨️ Print Atlas & PDF")
 st.caption(
     "A browser preview of the real paper sheets, followed by the same layout "
     "exported as PDF with CMYK corrections."
 )
-
-cfg = current_config()
-p = cfg["print"]
-for key, value in {
-    "print_cols": int(p["cols"]),
-    "print_rows": int(p["rows"]),
-    "print_page": p["page"],
-    "print_card_w_mm": float(p["card_w_mm"]),
-    "print_card_h_mm": float(p["card_h_mm"]),
-    "print_bleed_mm": float(p["bleed_mm"]),
-    "print_use_cmyk": p["use_cmyk"],
-    "print_show_calibration_strip": p["show_calibration_strip"],
-    "print_show_card_id": p["show_card_id"],
-}.items():
-    ensure_widget_value(key, value)
 
 with st.sidebar:
     st.subheader("Page layout")

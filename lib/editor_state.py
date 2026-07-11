@@ -56,10 +56,34 @@ def param_widget_key(chart_name: str, param_name: str) -> str:
     return f"{_PARAM_PREFIX}{chart_name}_{param_name}"
 
 
-def ensure_widget_value(key: str, value: Any) -> None:
-    """Initialize a page-specific widget normally when Streamlit recreates it."""
-    if key not in st.session_state:
-        st.session_state[key] = deepcopy(value)
+def _widget_value(value: Any) -> Any:
+    """Convert exported range lists to Streamlit's native tuple value."""
+    return tuple(value) if isinstance(value, list) else deepcopy(value)
+
+
+def _seed_missing_widget_values(template: dict) -> None:
+    """Restore keys that are absent when a session starts or imports config."""
+    for key, path in WIDGET_PATHS.items():
+        if key not in st.session_state:
+            st.session_state[key] = deepcopy(_get_path(template, path))
+
+    for chart_name, params in template.get("chart_params", {}).items():
+        for param_name, value in params.items():
+            key = param_widget_key(chart_name, param_name)
+            if key not in st.session_state:
+                st.session_state[key] = _widget_value(value)
+
+
+def _protect_widget_values_from_page_cleanup() -> None:
+    """Keep keyed settings alive when their multipage widget is not rendered.
+
+    Streamlit otherwise deletes page-local widget keys and can reconnect a
+    returning widget to stale frontend defaults. Re-saving the value in the
+    entrypoint is Streamlit's documented multipage persistence pattern.
+    """
+    for key in list(st.session_state):
+        if key in WIDGET_PATHS or key.startswith(_PARAM_PREFIX):
+            st.session_state[key] = st.session_state[key]
 
 
 def _get_path(cfg: dict, path: tuple[str, ...]) -> Any:
@@ -94,16 +118,18 @@ def load_config_into_widgets(cfg: dict) -> None:
             del st.session_state[key]
     for chart_name, params in template.get("chart_params", {}).items():
         for param_name, value in params.items():
-            widget_value = tuple(value) if isinstance(value, list) else deepcopy(value)
-            st.session_state[param_widget_key(chart_name, param_name)] = widget_value
+            st.session_state[param_widget_key(chart_name, param_name)] = _widget_value(value)
 
     st.session_state.pop("_last_pdf", None)
 
 
 def initialize_editor(cfg: dict) -> None:
-    """Seed normal widget state once at session start."""
+    """Initialize settings and preserve them across multipage navigation."""
     if _CONFIG_TEMPLATE_KEY not in st.session_state:
         load_config_into_widgets(cfg)
+        return
+    _protect_widget_values_from_page_cleanup()
+    _seed_missing_widget_values(st.session_state[_CONFIG_TEMPLATE_KEY])
 
 
 def current_config() -> dict:

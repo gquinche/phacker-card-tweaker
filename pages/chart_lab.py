@@ -13,7 +13,7 @@ from lib import chart_generators as cg
 from lib.card_render import render_preview_html
 from lib.chart_params import CHART_PARAM_SCHEMAS, cast_value
 from lib.colors import cmyk_to_hex
-from lib.editor_state import current_config, ensure_widget_value, param_widget_key
+from lib.editor_state import current_config, param_widget_key
 
 st.title("📊 Chart Lab")
 st.caption(
@@ -25,27 +25,6 @@ cfg = current_config()
 
 HATCH_OPTS = ["///", "\\\\\\", "|||", "---", "+++", "xxx", "ooo", "...", "/", "\\", "|", "-"]
 GAUSS_OPTS = ["/", "\\", "//", "\\\\", "|||", "---", "+++", "xxx"]
-
-# Page-local widget keys can be cleaned up by Streamlit when navigating away.
-# Recreate them normally from the last collected config when this page returns.
-for key, value in {
-    "dpi": cfg["dpi"],
-    "hatch_lw": cfg["hatch_lw"],
-    "hatch_bar_control": cfg["hatch"]["bar"][0],
-    "hatch_bar_treatment": cfg["hatch"]["bar"][1],
-    "hatch_box_control": cfg["hatch"]["box"][0],
-    "hatch_box_treatment": cfg["hatch"]["box"][1],
-    "hatch_gauss": cfg["hatch"]["gauss"] if cfg["hatch"]["gauss"] in GAUSS_OPTS else GAUSS_OPTS[0],
-    "effect_c": cfg["cmyk"]["effect"][0],
-    "effect_m": cfg["cmyk"]["effect"][1],
-    "effect_y": cfg["cmyk"]["effect"][2],
-    "effect_k": cfg["cmyk"]["effect"][3],
-    "no_effect_c": cfg["cmyk"]["no_effect"][0],
-    "no_effect_m": cfg["cmyk"]["no_effect"][1],
-    "no_effect_y": cfg["cmyk"]["no_effect"][2],
-    "no_effect_k": cfg["cmyk"]["no_effect"][3],
-}.items():
-    ensure_widget_value(key, value)
 
 with st.sidebar:
     st.subheader("Global chart params")
@@ -110,21 +89,13 @@ def _render_param_controls(name: str) -> None:
     schema = CHART_PARAM_SCHEMAS.get(name)
     if not schema:
         return
-    params = cfg["chart_params"].get(name, {})
     st.caption(f"{name} params")
     cols = st.columns(2)
-    for i, (param_name, (kind, dtype, lo, hi, step, default, label)) in enumerate(schema.items()):
+    for i, (param_name, (_kind, dtype, lo, hi, step, _default, label)) in enumerate(schema.items()):
         lo_c = cast_value(dtype, lo)
         hi_c = cast_value(dtype, hi)
         step_c = cast_value(dtype, step)
-        current = params.get(param_name, default)
-        widget_value = (
-            (cast_value(dtype, current[0]), cast_value(dtype, current[1]))
-            if kind == "range"
-            else cast_value(dtype, current)
-        )
         key = param_widget_key(name, param_name)
-        ensure_widget_value(key, widget_value)
         with cols[i % 2]:
             st.slider(label, lo_c, hi_c, step=step_c, key=key)
 
