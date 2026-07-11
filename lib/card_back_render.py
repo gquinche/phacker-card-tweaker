@@ -60,14 +60,9 @@ def bureau_seal_svg(
     safe_uid = "".join(char if char.isalnum() else "-" for char in uid)
     ring_id = f"bureau-ring-{safe_uid}"
     numeral = numeral if numeral in ROMAN_NUMERALS else ""
-    p_y = "43" if numeral else "52"
-    numeral_markup = (
-        f'<text x="50" y="66" font-family="Playfair Display, DejaVu Serif, Georgia, serif" '
-        f'font-weight="700" font-size="12" letter-spacing="1.2" text-anchor="middle" '
-        f'dominant-baseline="central" fill="#000">{numeral}</text>'
-        if numeral
-        else ""
-    )
+    center_mark = numeral or "P"
+    mark_size = 34 if len(center_mark) == 1 else 28 if len(center_mark) == 2 else 24
+    letter_spacing = "1.2" if numeral else "0"
     return f"""
 <svg class="tw-card-back__seal" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
@@ -78,8 +73,7 @@ def bureau_seal_svg(
   <text font-family="IBM Plex Mono, DejaVu Sans Mono, monospace" font-size="5.3" letter-spacing="0.36" fill="#000">
     <textPath href="#{ring_id}" startOffset="0">{SEAL_RING_TEXT}</textPath>
   </text>
-  <text x="50" y="{p_y}" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="34" text-anchor="middle" dominant-baseline="central" fill="#000">P</text>
-  {numeral_markup}
+  <text x="50" y="52" font-family="Playfair Display, DejaVu Serif, Georgia, serif" font-weight="800" font-size="{mark_size}" letter-spacing="{letter_spacing}" text-anchor="middle" dominant-baseline="central" fill="#000">{center_mark}</text>
 </svg>
 """.strip()
 

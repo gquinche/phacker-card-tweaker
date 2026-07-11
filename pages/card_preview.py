@@ -27,7 +27,7 @@ with st.sidebar:
         "Preview-only Roman numeral",
         ["None", *ROMAN_NUMERALS],
         key="preview_back_numeral",
-        help="Visual review only. Print/PDF backs always omit numerals.",
+        help="Replaces P for visual review only. Print/PDF backs always show P.",
     )
 
 seed = st.number_input(

@@ -68,7 +68,7 @@ contour, flow, and the experimental guilloche. `lib/card_back_render.py` uses th
 same exact dimensions and selected paper-stock color as the front (white by default),
 then applies the engraved frame, motif, and approved B/W `P` / `DEPARTMENT OF
 REPRODUCIBILITY` bureau seal from the attached print prototype. Card Preview can
-overlay I–V for reviewing the in-game proposal, but physical preview/PDF backs
+replace P with I–V for reviewing the in-game proposal, but physical preview/PDF backs
 intentionally contain no Roman numeral or card ID, so every back is identical and
 reveals no deck information. Print Atlas can append one matching back sheet per
 front sheet for browser preview and PDF output.
