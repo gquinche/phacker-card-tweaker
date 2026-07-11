@@ -96,8 +96,9 @@ CARD_CSS = """
 .tw-card__crease--v {{ position:absolute; top:0; bottom:0; left:50%; width:1px; background: rgba(160,130,80,0.08); z-index:0; }}
 
 .tw-card__band {{ position:relative; z-index:1; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding: 4px 6px; }}
-.tw-card--hand .tw-card__band, .tw-card--print .tw-card__band {{ height: {band_h_hand}; }}
+.tw-card--hand .tw-card__band {{ height: {band_h_hand}; }}
 .tw-card--verdict .tw-card__band {{ height: {band_h_verdict}; }}
+.tw-card--print .tw-card__band {{ height: {band_h_print}; }}
 /* simplified-ui: hand band label is 1.08rem (1.5× base) */
 .tw-card--hand .tw-card__band-label {{ font-size: 1.08rem; }}
 
@@ -135,8 +136,10 @@ _PDF_TYPED = "'DejaVu Sans Mono', 'Courier New', monospace"
 
 def _css_for(cfg: dict, target: str) -> str:
     paper = PAPER_STOCKS.get(cfg["card"]["paper"], PAPER_STOCKS["cream"])
-    # simplified-ui: hand band = 66px (1.5× the 44px base), verdict = 38px
-    band_h_hand = "66px" if target == "preview" else f'{cfg["print"]["card_h_mm"] * cfg["band_pct"] / 100:.2f}mm'
+    # Keep hand cards at their shipped pixel height, but keep print cards in
+    # millimetres for both the browser atlas and the final PDF.
+    band_h_hand = "66px"
+    band_h_print = f'{cfg["print"]["card_h_mm"] * cfg["band_pct"] / 100:.2f}mm'
     return CARD_CSS.format(
         paper_hex=paper["hex"],
         paper_edge=paper["edge"],
@@ -145,6 +148,7 @@ def _css_for(cfg: dict, target: str) -> str:
         typed_font_stack=_PDF_TYPED if target == "pdf" else _PREVIEW_TYPED,
         band_h_hand=band_h_hand,
         band_h_verdict="38px",
+        band_h_print=band_h_print,
         chart_opacity=cfg["card"]["chart_opacity"],
         print_w=cfg["print"]["card_w_mm"],
         print_h=cfg["print"]["card_h_mm"],
@@ -173,7 +177,7 @@ def render_card_html(
 
     label = "TRUE" if significant else "FALSE"
     band_class = "significant" if significant else "null"
-    size_class = f"tw-card--{size}" if target != "pdf" else "tw-card--print"
+    size_class = f"tw-card--{size}"
 
     footer_html = ""
     if cfg["card"].get("show_footer", True):
@@ -220,11 +224,21 @@ body {{ margin:0; padding: 16px; background:#2f2a24; display:flex; flex-wrap:wra
 </body></html>"""
 
 
-def render_print_atlas_html(cfg: dict, sig_svgs: list[str], null_svgs: list[str]) -> str:
-    """Build the full print-ready multi-page HTML document: one page of TRUE
-    cards, one page of FALSE cards, laid out on a CSS Grid sized in mm with
-    bleed — same structure as the proven print-atlas-calibrator prototype,
-    just built in Python so it can also be fed to WeasyPrint."""
+def render_print_atlas_html(
+    cfg: dict,
+    sig_svgs: list[str],
+    null_svgs: list[str],
+    *,
+    target: str = "pdf",
+) -> str:
+    """Build the two-page atlas for either the browser preview or WeasyPrint.
+
+    Both targets share the same mm-based page, grid, card, and title layout.
+    Only color expression differs: preview uses browser-safe hex; PDF can use
+    device-cmyk() and recolor baked SVG ink through currentColor.
+    """
+    if target not in {"preview", "pdf"}:
+        raise ValueError(f"Unsupported atlas target: {target}")
     p = cfg["print"]
     page_w, page_h = PAGE_SIZES_MM[p["page"]]
     cw, ch, bleed = p["card_w_mm"], p["card_h_mm"], p["bleed_mm"]
@@ -238,8 +252,12 @@ def render_print_atlas_html(cfg: dict, sig_svgs: list[str], null_svgs: list[str]
             svg = svg_pool[i % len(svg_pool)]
             card_id = ("T" if significant else "F") + f"{i:02d}"
             card_html = render_card_html(
-                card_id=card_id, significant=significant, chart_svg=svg,
-                cfg=cfg, target="pdf",
+                card_id=card_id,
+                significant=significant,
+                chart_svg=svg,
+                cfg=cfg,
+                target=target,
+                size="print",
             )
             cells.append(f'<div class="tw-cell">{card_html}</div>')
         cal_strip = ""
@@ -249,14 +267,25 @@ def render_print_atlas_html(cfg: dict, sig_svgs: list[str], null_svgs: list[str]
             cal_strip = '<div class="tw-calstrip">' + "".join(
                 f'<div style="background:{c};width:{sw:.1f}mm;height:7mm;"></div>' for c in swatches
             ) + "</div>"
-        label = "TRUE (Significant)" if significant else "FALSE (Null)"
+        title = "TRUE FINDINGS" if significant else "FALSE FINDINGS"
+        subtitle = "SIGNIFICANT RESULTS" if significant else "NULL RESULTS"
+        atlas_ink = ink_css_color(cfg, significant, target)
+        grid_w = cols * cell_w
+        grid_h = rows * cell_h
+        grid_left = (page_w - grid_w) / 2
+        grid_top = max((page_h - grid_h) / 2, 10.0)
+        header_top = max(2.0, grid_top - 7.0)
         return f"""
 <section class="tw-page">
-  <div class="tw-grid" style="grid-template-columns: repeat({cols}, {cell_w:.2f}mm); grid-template-rows: repeat({rows}, {cell_h:.2f}mm);">
+  <header class="tw-atlas-header" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:{atlas_ink};">
+    <span class="tw-atlas-header__kicker">P-HACKER · RECORDS BUREAU</span>
+    <span class="tw-atlas-header__title">{title}</span>
+    <span class="tw-atlas-header__meta">{subtitle} · {n} CARDS</span>
+  </header>
+  <div class="tw-grid" style="grid-template-columns: repeat({cols}, {cell_w:.2f}mm); grid-template-rows: repeat({rows}, {cell_h:.2f}mm); left:{grid_left:.2f}mm; top:{grid_top:.2f}mm;">
     {''.join(cells)}
   </div>
   {cal_strip}
-  <!-- {label} -->
 </section>"""
 
     body = build_page(True, sig_svgs) + build_page(False, null_svgs)
@@ -267,11 +296,39 @@ def render_print_atlas_html(cfg: dict, sig_svgs: list[str], null_svgs: list[str]
 body {{ margin: 0; }}
 .tw-page {{ width: {page_w}mm; height: {page_h}mm; position: relative; page-break-after: always; }}
 .tw-page:last-child {{ page-break-after: avoid; }}
+.tw-atlas-header {{
+  position:absolute;
+  z-index:2;
+  display:grid;
+  grid-template-columns: 1fr auto;
+  align-items:end;
+  gap:0 4mm;
+  font-family:{_PDF_SERIF if target == "pdf" else _PREVIEW_SERIF};
+  border-bottom:0.35mm solid currentColor;
+  padding-bottom:1.2mm;
+}}
+.tw-atlas-header__kicker {{
+  grid-column:1 / -1;
+  font-family:{_PDF_TYPED if target == "pdf" else _PREVIEW_TYPED};
+  font-size:2.1mm;
+  letter-spacing:0.18em;
+  font-weight:700;
+}}
+.tw-atlas-header__title {{
+  font-size:5.4mm;
+  font-weight:700;
+  letter-spacing:0.06em;
+  line-height:1;
+}}
+.tw-atlas-header__meta {{
+  font-family:{_PDF_TYPED if target == "pdf" else _PREVIEW_TYPED};
+  font-size:2.1mm;
+  letter-spacing:0.08em;
+  white-space:nowrap;
+}}
 .tw-grid {{
   display: grid;
   position: absolute;
-  left: {(page_w - cols * cell_w) / 2:.2f}mm;
-  top: {(page_h - rows * cell_h) / 2:.2f}mm;
   gap: 0;
 }}
 .tw-cell {{
@@ -279,7 +336,7 @@ body {{ margin: 0; }}
   border: 0.3pt dashed rgba(0,0,0,.15);
 }}
 .tw-calstrip {{ position:absolute; bottom:0; left:0; right:0; display:flex; }}
-{_css_for(cfg, "pdf")}
+{_css_for(cfg, target)}
 </style></head><body>
 {body}
 </body></html>"""

@@ -15,6 +15,7 @@ from lib import chart_generators as cg
 from lib.card_render import build_pdf_bytes, render_print_atlas_html
 from lib.colors import cmyk_to_hex
 from lib.config_io import PAGE_SIZES_MM, dump_yaml
+from lib.editor_state import hydrate_config_widget
 
 st.title("🖨️ Print Atlas & PDF")
 st.caption(
@@ -29,32 +30,54 @@ with st.sidebar:
     st.subheader("Page layout")
     c1, c2 = st.columns(2)
     with c1:
-        p["cols"] = st.number_input("Columns", 1, 8, int(p["cols"]))
+        p["cols"] = st.number_input(
+            "Columns", 1, 8, step=1,
+            key=hydrate_config_widget("print_cols", int(p["cols"])),
+        )
     with c2:
-        p["rows"] = st.number_input("Rows", 1, 8, int(p["rows"]))
+        p["rows"] = st.number_input(
+            "Rows", 1, 8, step=1,
+            key=hydrate_config_widget("print_rows", int(p["rows"])),
+        )
     p["page"] = st.selectbox(
         "Page size", list(PAGE_SIZES_MM.keys()),
-        list(PAGE_SIZES_MM.keys()).index(p["page"]),
+        key=hydrate_config_widget("print_page", p["page"]),
         format_func=lambda k: k.replace("_", " ").title(),
     )
 
     st.subheader("Card size")
     cc1, cc2 = st.columns(2)
     with cc1:
-        p["card_w_mm"] = st.number_input("Width (mm)", 25.0, 80.0, float(p["card_w_mm"]), 0.01)
+        p["card_w_mm"] = st.number_input(
+            "Width (mm)", 25.0, 80.0, step=0.01,
+            key=hydrate_config_widget("print_card_w_mm", float(p["card_w_mm"])),
+        )
     with cc2:
-        p["card_h_mm"] = st.number_input("Height (mm)", 40.0, 120.0, float(p["card_h_mm"]), 0.01)
-    p["bleed_mm"] = st.number_input("Bleed (mm)", 0.0, 5.0, float(p["bleed_mm"]), 0.5)
+        p["card_h_mm"] = st.number_input(
+            "Height (mm)", 40.0, 120.0, step=0.01,
+            key=hydrate_config_widget("print_card_h_mm", float(p["card_h_mm"])),
+        )
+    p["bleed_mm"] = st.number_input(
+        "Bleed (mm)", 0.0, 5.0, step=0.5,
+        key=hydrate_config_widget("print_bleed_mm", float(p["bleed_mm"])),
+    )
 
     st.subheader("Color")
     p["use_cmyk"] = st.checkbox(
-        "Write true CMYK into the PDF (device-cmyk())", p["use_cmyk"],
+        "Write true CMYK into the PDF (device-cmyk())",
+        key=hydrate_config_widget("print_use_cmyk", p["use_cmyk"]),
         help="Needs weasyprint>=67. Off = plain RGB-approximation PDF (still same layout).",
     )
-    p["show_calibration_strip"] = st.checkbox("Calibration strip (for print-scale checks)", p["show_calibration_strip"])
-    p["show_card_id"] = st.checkbox("Card ID stamps", p["show_card_id"])
+    p["show_calibration_strip"] = st.checkbox(
+        "Calibration strip (for print-scale checks)",
+        key=hydrate_config_widget("print_show_calibration_strip", p["show_calibration_strip"]),
+    )
+    p["show_card_id"] = st.checkbox(
+        "Card ID stamps",
+        key=hydrate_config_widget("print_show_card_id", p["show_card_id"]),
+    )
 
-    zoom = st.slider("Preview zoom", 20, 100, 45, 5)
+    zoom = st.slider("Preview zoom", 20, 100, 45, 5, key="atlas_preview_zoom")
 
 cell_w = p["card_w_mm"] + p["bleed_mm"] * 2
 cell_h = p["card_h_mm"] + p["bleed_mm"] * 2
@@ -88,7 +111,7 @@ sig_svgs, null_svgs = _svg_pool(int(cfg["seeds_per_type"]), _fingerprint, e_hex,
 
 @st.fragment
 def atlas_preview():
-    preview_html = render_print_atlas_html(cfg, sig_svgs, null_svgs)
+    preview_html = render_print_atlas_html(cfg, sig_svgs, null_svgs, target="preview")
     # Give the user a zero-dependency "print via browser" escape hatch too —
     # same trick the original calibrator prototype used, scoped to just this
     # iframe's own content via @media print + window.print().
@@ -125,7 +148,7 @@ with col_btn:
     if st.button("🖶 Generate PDF", type="primary", width="stretch"):
         try:
             with st.spinner("Rendering the print-ready PDF…"):
-                html = render_print_atlas_html(cfg, sig_svgs, null_svgs)
+                html = render_print_atlas_html(cfg, sig_svgs, null_svgs, target="pdf")
                 pdf_bytes = build_pdf_bytes(html)
             st.session_state["_last_pdf"] = pdf_bytes
             st.success(f"PDF ready — {len(pdf_bytes) // 1024} KB")

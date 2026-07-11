@@ -22,11 +22,10 @@ cfg = st.session_state.cfg
 
 with st.sidebar:
     st.subheader("Card Preview")
-    cfg["card"]["show_footer"] = st.checkbox("Show typewriter footer (n=/p=)", cfg["card"]["show_footer"])
-    cfg["card"]["show_stamp"] = st.checkbox("Show bureau stamp", cfg["card"]["show_stamp"])
-    cfg["card"]["show_creases"] = st.checkbox("Show fold creases", cfg["card"]["show_creases"])
-    size = st.radio("Card size", ["verdict", "hand"], horizontal=True,
-                     help="verdict = 140x190px (publication blotter) · hand = 220x300px (hand strip)")
+    size = st.radio(
+        "Card size", ["verdict", "hand"], horizontal=True, key="preview_card_size",
+        help="verdict = 140x190px (publication blotter) · hand = 220x300px (hand strip)",
+    )
 
 e_hex = cmyk_to_hex(*cfg["cmyk"]["effect"])
 n_hex = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
@@ -34,7 +33,9 @@ n_hex = cmyk_to_hex(*cfg["cmyk"]["no_effect"])
 
 @st.fragment
 def gallery():
-    seed = st.number_input("Seed (same seed used for every chart type below)", 0, 9999, 0, 1)
+    seed = st.number_input(
+        "Seed (same seed used for every chart type below)", 0, 9999, 0, 1, key="preview_seed",
+    )
     cards_html = []
     for name in cg.all_chart_names():
         svg_t = cg.render_svg_bare(name, True, int(seed), cfg, e_hex)

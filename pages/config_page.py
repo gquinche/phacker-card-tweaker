@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from lib.config_io import dump_yaml, load_defaults
+from lib.editor_state import replace_config, schedule_config_draft_reset
 
 st.title("⚙️ Config")
 cfg = st.session_state.cfg
@@ -27,7 +28,10 @@ with col2:
         width="stretch",
     )
     if st.button("↺ Reset to defaults", width="stretch"):
-        st.session_state.cfg = load_defaults()
+        # This button runs after the shared sidebar widgets. Defer draft cleanup
+        # to the next full run so Streamlit never mutates instantiated widgets.
+        replace_config(load_defaults(), clear_drafts=False)
+        schedule_config_draft_reset()
         st.rerun()
 
 st.divider()

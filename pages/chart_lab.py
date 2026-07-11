@@ -17,6 +17,7 @@ from lib import chart_generators as cg
 from lib.card_render import render_preview_html
 from lib.chart_params import CHART_PARAM_SCHEMAS, cast_value
 from lib.colors import cmyk_to_hex
+from lib.editor_state import hydrate_config_widget
 
 st.title("📊 Chart Lab")
 st.caption(
@@ -31,20 +32,39 @@ GAUSS_OPTS = ["/", "\\", "//", "\\\\", "|||", "---", "+++", "xxx"]
 
 with st.sidebar:
     st.subheader("Global chart params")
-    cfg["dpi"] = st.slider("Thumbnail DPI", 80, 220, int(cfg["dpi"]), 10)
-    cfg["hatch_lw"] = st.slider("Hatch line weight", 0.5, 5.0, float(cfg["hatch_lw"]), 0.1)
+    cfg["dpi"] = st.slider(
+        "Thumbnail DPI", 80, 220, step=10,
+        key=hydrate_config_widget("dpi", cfg["dpi"]),
+    )
+    cfg["hatch_lw"] = st.slider(
+        "Hatch line weight", 0.5, 5.0, step=0.1,
+        key=hydrate_config_widget("hatch_lw", cfg["hatch_lw"]),
+    )
 
     st.subheader("Hatch fills (no solid infills — ink-saving rule)")
     c1, c2 = st.columns(2)
     with c1:
-        cfg["hatch"]["bar"][0] = st.selectbox("Bar control", HATCH_OPTS, HATCH_OPTS.index(cfg["hatch"]["bar"][0]))
-        cfg["hatch"]["box"][0] = st.selectbox("Box control", HATCH_OPTS, HATCH_OPTS.index(cfg["hatch"]["box"][0]))
+        cfg["hatch"]["bar"][0] = st.selectbox(
+            "Bar control", HATCH_OPTS,
+            key=hydrate_config_widget("hatch_bar_control", cfg["hatch"]["bar"][0]),
+        )
+        cfg["hatch"]["box"][0] = st.selectbox(
+            "Box control", HATCH_OPTS,
+            key=hydrate_config_widget("hatch_box_control", cfg["hatch"]["box"][0]),
+        )
     with c2:
-        cfg["hatch"]["bar"][1] = st.selectbox("Bar treatment", HATCH_OPTS, HATCH_OPTS.index(cfg["hatch"]["bar"][1]))
-        cfg["hatch"]["box"][1] = st.selectbox("Box treatment", HATCH_OPTS, HATCH_OPTS.index(cfg["hatch"]["box"][1]))
-    gi = GAUSS_OPTS.index(cfg["hatch"]["gauss"]) if cfg["hatch"]["gauss"] in GAUSS_OPTS else 0
+        cfg["hatch"]["bar"][1] = st.selectbox(
+            "Bar treatment", HATCH_OPTS,
+            key=hydrate_config_widget("hatch_bar_treatment", cfg["hatch"]["bar"][1]),
+        )
+        cfg["hatch"]["box"][1] = st.selectbox(
+            "Box treatment", HATCH_OPTS,
+            key=hydrate_config_widget("hatch_box_treatment", cfg["hatch"]["box"][1]),
+        )
+    gauss_value = cfg["hatch"]["gauss"] if cfg["hatch"]["gauss"] in GAUSS_OPTS else GAUSS_OPTS[0]
     cfg["hatch"]["gauss"] = st.selectbox(
-        "Gaussian Group B hatch", GAUSS_OPTS, gi,
+        "Gaussian Group B hatch", GAUSS_OPTS,
+        key=hydrate_config_widget("hatch_gauss", gauss_value),
         help="Keep sparse — Group A stays clean so the two-bell overlap doesn't get damaged.",
     )
 
@@ -52,11 +72,11 @@ with st.sidebar:
     e = cfg["cmyk"]["effect"]
     ec1, ec2 = st.columns(2)
     with ec1:
-        e[0] = st.slider("C", 0, 100, e[0], key="e_c")
-        e[1] = st.slider("M", 0, 100, e[1], key="e_m")
+        e[0] = st.slider("C", 0, 100, key=hydrate_config_widget("effect_c", e[0]))
+        e[1] = st.slider("M", 0, 100, key=hydrate_config_widget("effect_m", e[1]))
     with ec2:
-        e[2] = st.slider("Y", 0, 100, e[2], key="e_y")
-        e[3] = st.slider("K", 0, 100, e[3], key="e_k")
+        e[2] = st.slider("Y", 0, 100, key=hydrate_config_widget("effect_y", e[2]))
+        e[3] = st.slider("K", 0, 100, key=hydrate_config_widget("effect_k", e[3]))
     e_hex = cmyk_to_hex(*e)
     st.html(f'<div style="background:{e_hex};border-radius:4px;padding:4px 8px;'
             f'font-family:monospace;font-size:12px;color:#fff">{e_hex}</div>')
@@ -65,11 +85,11 @@ with st.sidebar:
     n = cfg["cmyk"]["no_effect"]
     nc1, nc2 = st.columns(2)
     with nc1:
-        n[0] = st.slider("C", 0, 100, n[0], key="n_c")
-        n[1] = st.slider("M", 0, 100, n[1], key="n_m")
+        n[0] = st.slider("C", 0, 100, key=hydrate_config_widget("null_c", n[0]))
+        n[1] = st.slider("M", 0, 100, key=hydrate_config_widget("null_m", n[1]))
     with nc2:
-        n[2] = st.slider("Y", 0, 100, n[2], key="n_y")
-        n[3] = st.slider("K", 0, 100, n[3], key="n_k")
+        n[2] = st.slider("Y", 0, 100, key=hydrate_config_widget("null_y", n[2]))
+        n[3] = st.slider("K", 0, 100, key=hydrate_config_widget("null_k", n[3]))
     n_hex = cmyk_to_hex(*n)
     st.html(f'<div style="background:{n_hex};border-radius:4px;padding:4px 8px;'
             f'font-family:monospace;font-size:12px;color:#fff">{n_hex}</div>')
@@ -91,12 +111,17 @@ def _render_param_controls(name: str, key_prefix: str) -> None:
     for i, (key, (kind, dtype, lo, hi, step, default, label)) in enumerate(schema.items()):
         lo_c, hi_c, step_c = cast_value(dtype, lo), cast_value(dtype, hi), cast_value(dtype, step)
         current = params.get(key, default)
+        widget_value = (
+            (cast_value(dtype, current[0]), cast_value(dtype, current[1]))
+            if kind == "range"
+            else cast_value(dtype, current)
+        )
+        draft_key = hydrate_config_widget(f"{key_prefix}_{name}_{key}", widget_value)
         with cols[i % 2]:
             if kind == "range":
-                cur = (cast_value(dtype, current[0]), cast_value(dtype, current[1]))
-                params[key] = list(st.slider(label, lo_c, hi_c, cur, step_c, key=f"{key_prefix}_{name}_{key}"))
+                params[key] = list(st.slider(label, lo_c, hi_c, step=step_c, key=draft_key))
             else:
-                params[key] = st.slider(label, lo_c, hi_c, cast_value(dtype, current), step_c, key=f"{key_prefix}_{name}_{key}")
+                params[key] = st.slider(label, lo_c, hi_c, step=step_c, key=draft_key)
 
 
 @st.fragment
