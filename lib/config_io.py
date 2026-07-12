@@ -46,6 +46,11 @@ FALLBACK_CONFIG: dict = {
         "show_footer": False,
         "show_stamp": True,
         "show_creases": True,
+        # Screen-only atmosphere is applied through @media screen so it never
+        # changes the canonical print geometry or CMYK source colors.
+        "screen_shadows": True,
+        "screen_paper_texture": True,
+        "screen_warm_creases": True,
     },
     "print": {
         "card_w_mm": 41.27,
@@ -55,6 +60,8 @@ FALLBACK_CONFIG: dict = {
         "rows": 4,
         "page": "A4_portrait",      # A4_portrait | A4_landscape | letter_portrait | letter_landscape
         "use_cmyk": True,
+        "pdf_renderer": "auto",       # auto | browser | weasyprint
+        "cmyk_profile_path": "",       # optional local ICC profile for Ghostscript
         "show_calibration_strip": False,
         "show_card_id": True,
         "include_back_pages": True,

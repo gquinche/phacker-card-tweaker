@@ -58,6 +58,10 @@ with st.sidebar:
     st.checkbox("Typewriter footer (n=/p=)", key="card_show_footer")
     st.checkbox("Bureau stamp", key="card_show_stamp")
     st.checkbox("Fold creases", key="card_show_creases")
+    st.caption("Screen atmosphere (never part of print geometry)")
+    st.checkbox("Screen shadows", key="card_screen_shadows")
+    st.checkbox("Paper texture", key="card_screen_paper_texture")
+    st.checkbox("Warm crease tint", key="card_screen_warm_creases")
 
     st.subheader("🂠 Card Back")
     st.selectbox(

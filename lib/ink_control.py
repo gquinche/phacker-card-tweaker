@@ -45,6 +45,32 @@ _NAMED_HEX = {
 }
 
 
+def _remove_screen_media(css: str) -> str:
+    """Remove nested @media screen blocks before auditing print ink."""
+    marker = re.compile(r"@media\s+screen\s*\{", re.I)
+    output: list[str] = []
+    cursor = 0
+    while True:
+        match = marker.search(css, cursor)
+        if not match:
+            output.append(css[cursor:])
+            break
+        output.append(css[cursor:match.start()])
+        depth = 0
+        index = match.end() - 1
+        while index < len(css):
+            if css[index] == "{":
+                depth += 1
+            elif css[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    index += 1
+                    break
+            index += 1
+        cursor = index
+    return "".join(output)
+
+
 def recipe(cfg: dict, page: str) -> list[int]:
     return [int(value) for value in cfg["cmyk"][page]]
 
@@ -160,7 +186,9 @@ def audit_print_html(html: str, cfg: dict, tolerance: float = 0.75) -> dict:
     for page in PAGE_KEYS:
         global_allowed &= allowed_channels(cfg, page)
     for style in _STYLE_RE.findall(html):
-        for color, values in _scan_colors(style):
+        # Screen-only shadows/textures are intentionally not print ink.
+        printable_style = _remove_screen_media(style)
+        for color, values in _scan_colors(printable_style):
             active = tuple(
                 channel for channel, value in zip(CHANNELS, values) if value > tolerance
             )

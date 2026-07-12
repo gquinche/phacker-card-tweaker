@@ -123,6 +123,10 @@ card:
   show_footer: false
   show_stamp: true
   show_creases: true
+  # Screen-only atmosphere; these never change print geometry or ink.
+  screen_shadows: true
+  screen_paper_texture: true
+  screen_warm_creases: true
 
 # Print atlas / PDF export.
 print:
@@ -132,7 +136,9 @@ print:
   cols: 4
   rows: 4
   page: A4_portrait         # A4_portrait | A4_landscape | letter_portrait | letter_landscape
-  use_cmyk: true            # write device-cmyk() colors into the PDF (needs weasyprint>=67)
+  use_cmyk: true            # post-process the browser PDF to DeviceCMYK via Ghostscript
+  pdf_renderer: auto        # auto | browser | weasyprint
+  cmyk_profile_path: ""     # optional print-shop ICC profile path
   show_calibration_strip: false
   show_card_id: true
   include_back_pages: true  # append matching card-back sheets to preview/PDF
