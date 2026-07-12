@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from .ink_control import css_from_hex, device_cmyk, preview_hex
+from .ink_control import preview_hex
 from .paper import paper_stock
 
 ASSET_DIR = Path(__file__).resolve().parent.parent / "assets" / "card_backs"
@@ -81,22 +81,13 @@ def bureau_seal_svg(
 
 
 def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
-    """CSS port of simplified-ui's back using one assigned BACK ink in PDF."""
-    use_cmyk = cfg["print"].get("use_cmyk", True)
-    ink = device_cmyk(cfg, "back") if target == "pdf" and use_cmyk else preview_hex(cfg, "back")
+    """Return one card-back stylesheet for both browser and PDF targets."""
+    del target
+    ink = preview_hex(cfg, "back")
     pattern_uri = pattern_data_uri(token, ink)
-    paper = paper_stock(cfg["card"]["paper"])
-    paper_color = css_from_hex(paper["hex"], target, use_cmyk)
+    paper_color = paper_stock(cfg["card"]["paper"])["hex"]
     print_w = cfg["print"]["card_w_mm"]
     print_h = cfg["print"]["card_h_mm"]
-    back_background = paper_color if target == "pdf" else (
-        "radial-gradient(ellipse at 50% 42%, rgba(255,255,255,0.55) 0%, "
-        f"rgba(255,255,255,0) 58%), {paper_color}"
-    )
-    back_shadow = "none" if target == "pdf" else (
-        "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), "
-        "inset 0 1px 0 rgba(255,255,255,0.55)"
-    )
     print_radius_mm = (
         max(0.0, float(cfg["print"].get("corner_radius_mm", 3.0)))
         if cfg["print"].get("round_corners", False)
@@ -104,15 +95,25 @@ def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
     )
     print_radius = f"{print_radius_mm:.2f}mm" if print_radius_mm else "0"
     print_inner_radius = f"{max(0.0, print_radius_mm - 1.0):.2f}mm" if print_radius_mm else "0"
+    screen_shadow = (
+        "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), "
+        "inset 0 1px 0 rgba(255,255,255,0.55)"
+        if cfg["card"].get("screen_shadows", True) else "none"
+    )
+    screen_background = (
+        "radial-gradient(ellipse at 50% 42%, rgba(255,255,255,0.55) 0%, "
+        f"rgba(255,255,255,0) 58%), {paper_color}"
+        if cfg["card"].get("screen_paper_texture", True) else paper_color
+    )
     return f"""
 .tw-card-back {{
   position:relative;
   overflow:hidden;
-  background:{back_background};
+  background:{paper_color};
   border:2px solid {ink};
   border-radius:12px;
-  box-shadow:{back_shadow};
-  font-family:'DejaVu Serif', Georgia, serif;
+  box-shadow:none;
+  font-family:'Playfair Display', Georgia, 'DejaVu Serif', serif;
 }}
 .tw-card-back--hand {{ width:234px; height:327px; }}
 .tw-card-back--verdict {{ width:140px; height:190px; }}
@@ -139,7 +140,10 @@ def card_back_css(cfg: dict, token: str, target: str = "preview") -> str:
 .tw-card-back__seal {{ width:100%; height:100%; display:block; }}
 .tw-card-back__id {{
   position:absolute; right:5px; top:4px; z-index:2;
-  color:{ink}; font:5pt 'DejaVu Sans Mono','Courier New',monospace;
+  color:{ink}; font:5pt 'Special Elite','DejaVu Sans Mono','Courier New',monospace;
+}}
+@media screen {{
+  .tw-card-back {{ background:{screen_background}; box-shadow:{screen_shadow}; }}
 }}
 """
 
@@ -158,9 +162,9 @@ def render_card_back_html(
     resolved = _resolved_token(token)
     id_html = f'<span class="tw-card-back__id">{card_id}</span>' if card_id else ""
     paper = paper_stock(cfg["card"]["paper"])
-    use_cmyk = cfg["print"].get("use_cmyk", True)
-    paper_color = css_from_hex(paper["hex"], target, use_cmyk)
-    ink = device_cmyk(cfg, "back") if target == "pdf" and use_cmyk else preview_hex(cfg, "back")
+    del target
+    paper_color = paper["hex"]
+    ink = preview_hex(cfg, "back")
     seal = bureau_seal_svg(
         uid=uid or card_id or "preview",
         paper_hex=paper_color,

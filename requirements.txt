@@ -3,4 +3,7 @@ numpy>=1.24
 matplotlib>=3.9
 Pillow>=10.0
 pyyaml>=6.0
+# Optional fallback for deployments without Chromium; the browser renderer is
+# preferred when Playwright and a Chromium executable are available.
+playwright>=1.50
 weasyprint>=67

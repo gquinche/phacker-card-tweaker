@@ -9,15 +9,16 @@ from __future__ import annotations
 import streamlit as st
 
 from lib import chart_generators as cg
-from lib.card_render import build_pdf_bytes, render_print_atlas_html
+from lib.card_render import render_print_atlas_html
 from lib.config_io import PAGE_SIZES_MM, dump_yaml
+from lib.pdf_pipeline import PdfPipelineError, PdfRendererUnavailable, build_pdf_bytes
 from lib.editor_state import current_config
 from lib.ink_control import PAGE_LABELS, audit_print_html
 
 st.title("🖨️ Print Atlas & PDF")
 st.caption(
-    "A browser preview of the real paper sheets, followed by the same layout "
-    "exported as PDF with CMYK corrections."
+    "The browser-safe HTML is the source of truth. The PDF button prints that same "
+    "document, then optionally applies CMYK conversion in Python."
 )
 
 with st.sidebar:
@@ -57,8 +58,24 @@ with st.sidebar:
 
     st.subheader("Color")
     st.checkbox(
-        "Write true CMYK into the PDF (device-cmyk())", key="print_use_cmyk",
-        help="The browser sheet preview always uses hex. This correction applies only to the PDF.",
+        "Write true CMYK into the PDF", key="print_use_cmyk",
+        help="The browser-safe HTML is rendered first; Python then runs the optional vector-preserving CMYK pass.",
+    )
+    st.selectbox(
+        "PDF renderer",
+        ["auto", "browser", "weasyprint"],
+        key="print_pdf_renderer",
+        format_func=lambda value: {
+            "auto": "Auto (browser first)",
+            "browser": "Chromium / Playwright",
+            "weasyprint": "WeasyPrint fallback",
+        }[value],
+        help="Auto uses a browser-grade print renderer when Chromium is available, then falls back to WeasyPrint.",
+    )
+    st.text_input(
+        "CMYK ICC profile path (optional)",
+        key="print_cmyk_profile_path",
+        help="Use the exact profile supplied by the print shop; otherwise Ghostscript uses its standard CMYK conversion.",
     )
     st.checkbox("Calibration strip (for print-scale checks)", key="print_show_calibration_strip")
     st.checkbox("Card ID stamps", key="print_show_card_id")
@@ -100,10 +117,12 @@ no_effect_svgs = [
 
 st.subheader("Paper preview")
 st.caption("White sheets are the physical paper area; optional back sheets use the selected real-game SVG motif.")
-preview_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="preview")
+preview_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs)
 st.iframe(preview_html, height="content")
 
-pdf_html = render_print_atlas_html(cfg, effect_svgs, no_effect_svgs, target="pdf")
+# The PDF source is literally the same HTML string shown above. This is the
+# parity guarantee: no second target-specific layout or positioning pass.
+pdf_html = preview_html
 ink_audit = audit_print_html(pdf_html, cfg)
 st.subheader("Ink preflight")
 if ink_audit["safe"]:
@@ -127,6 +146,8 @@ with col_info:
 | EFFECT ink | `{effect_hex}` (C{cfg['cmyk']['effect'][0]} M{cfg['cmyk']['effect'][1]} Y{cfg['cmyk']['effect'][2]} K{cfg['cmyk']['effect'][3]}) |
 | NO EFFECT ink | `{no_effect_hex}` (C{cfg['cmyk']['no_effect'][0]} M{cfg['cmyk']['no_effect'][1]} Y{cfg['cmyk']['no_effect'][2]} K{cfg['cmyk']['no_effect'][3]}) |
 | BACK ink | `{cfg['palette']['BACK']}` (C{cfg['cmyk']['back'][0]} M{cfg['cmyk']['back'][1]} Y{cfg['cmyk']['back'][2]} K{cfg['cmyk']['back'][3]}) |
+| PDF renderer | {p.get('pdf_renderer', 'auto')} |
+| CMYK profile | {p.get('cmyk_profile_path') or 'Ghostscript default'} |
 | Ink preflight | {'SAFE' if ink_audit['safe'] else 'BLOCKED'} |
 | Card | {p['card_w_mm']}×{p['card_h_mm']} mm + {p['bleed_mm']}mm bleed |
 | Print corners | {f"rounded · {p['corner_radius_mm']}mm" if p['round_corners'] else 'square · straight cut'} |
@@ -141,15 +162,21 @@ with col_btn:
         else:
             try:
                 with st.spinner("Rendering the print-ready PDF…"):
-                    st.session_state["_last_pdf"] = build_pdf_bytes(pdf_html)
+                    st.session_state["_last_pdf"] = build_pdf_bytes(
+                        pdf_html,
+                        renderer=p.get("pdf_renderer", "auto"),
+                        use_cmyk=p.get("use_cmyk", True),
+                        profile_path=p.get("cmyk_profile_path") or None,
+                    )
                     st.session_state["_last_pdf_config"] = dump_yaml(cfg)
                 st.success(f"PDF ready — {len(st.session_state['_last_pdf']) // 1024} KB")
-            except ImportError:
+            except PdfRendererUnavailable as exc:
                 st.error(
-                    "WeasyPrint isn't available in this environment (missing system libraries "
-                    "like pango/cairo). On Streamlit Community Cloud this is handled automatically "
-                    "by packages.txt in this repo. Locally, see README.md → Local setup."
+                    f"The selected PDF renderer is unavailable: {exc}. "
+                    "Choose Auto or WeasyPrint, or install Chromium/Playwright."
                 )
+            except PdfPipelineError as exc:
+                st.error(f"PDF/CMYK processing failed: {exc}")
             except Exception as exc:  # noqa: BLE001 — surface the real error to the user
                 st.error(f"PDF generation failed: {exc}")
 

@@ -21,7 +21,7 @@ pages/
   chart_lab.py          per-chart-type tuning with ordinary keyed Streamlit widgets
   ink_lab.py            per-page CMYK recipes, C/K plane, policies, and histogram
   card_preview.py        full gallery, every chart type × both findings, at real card size
-  print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (WeasyPrint)
+  print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (browser-first)
   config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
 lib/
   chart_generators.py    the 11 chart-art generators (bar, scatter×2, gaussian, box, gap,
@@ -29,8 +29,9 @@ lib/
                           ported from tools/card-art/fake_charts_cardart.py
   chart_params.py         per-chart tunable-param schemas (every chart, not just
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
-  card_render.py          THE single card/atlas HTML+CSS template + the WeasyPrint PDF builder
-  card_back_render.py     simplified-ui card backs from real SVG motifs, browser + PDF
+  card_render.py          THE single card/atlas HTML+CSS template shared by preview and PDF
+  card_back_render.py     simplified-ui card backs from real SVG motifs, one shared layout
+  pdf_pipeline.py         browser-first HTML PDF rendering + optional Ghostscript CMYK pass
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
   ink_control.py           page recipes, histogram + foreign-ink audit
@@ -42,7 +43,7 @@ assets/card_backs/       real SVG motifs copied from phacker-game experiment/sim
 config_defaults.yaml     starting values — `palette`/`hatch` keys mirror the real repo's dicts;
                           `chart_params` is this tool's own addition, see below
 requirements.txt
-packages.txt              apt packages Streamlit Community Cloud installs for WeasyPrint
+packages.txt              system packages Streamlit Community Cloud installs for PDF rendering
 ```
 
 ### Why one template for preview *and* print
@@ -53,15 +54,24 @@ separate matplotlib-patches redraw for the PDF, and neither matching the
 game's actual CSS) — so tuning a value in the preview told you nothing
 reliable about the print output. `lib/card_render.py` now renders **one**
 HTML/CSS card (`.tw-card`, deliberately named to echo the real
-`.print-card` family in `src/styles/game-cards.css`) that both the live
-preview (`st.iframe`, a real browser) and the PDF (WeasyPrint)
-consume. The browser atlas shows the same white paper sheets, page dimensions,
-grid, bleed cells, and card placement as the PDF. Layout, proportions, band %,
-and chart opacity are identical between the two. The **only** thing that
-differs by target is how color is *expressed*:
+`.print-card` family in `src/styles/game-cards.css`) and `print_atlas.py` passes
+the exact same HTML string to the live browser preview and the PDF pipeline.
 
-- Preview → hex (`#426183`) — no browser understands CSS `device-cmyk()`.
-- PDF → `device-cmyk(50% 26% 0% 49%)` — written into the PDF as literal CMYK.
+The default PDF renderer is browser-first: Playwright/Chromium uses the same
+layout engine family as the preview. WeasyPrint remains an explicit fallback
+for deployments that cannot ship Chromium. The fallback is still fed the same
+HTML, but it is not treated as a second design implementation.
+
+The HTML intentionally stays browser-safe RGB. Python runs an optional
+Ghostscript `pdfwrite` post-process after layout, converting the finished PDF
+to DeviceCMYK with the selected ICC profile while keeping text and vector
+content wherever the PDF engine permits. This separates geometry from print
+color decisions: a small CMYK conversion difference is acceptable, but a card
+moving or resizing between preview and export is not.
+
+Screen-only atmosphere — shadows, warm paper texture, warm crease tint, and
+sheet presentation — is isolated in `@media screen` and exposed as config
+flags. It can be tuned without changing the print boxes or the print ink audit.
 
 ### Real simplified-UI card backs
 
@@ -90,35 +100,41 @@ otherwise use a physical corner cutter after trimming. Game-size Card Preview re
 Ink Lab owns separate EFFECT, NO EFFECT, and BACK CMYK recipes. It provides exact
 C/M/Y/K sliders, allowed-channel policies, a real JavaScript Canvas Cyan-versus-Black
 picker plus native browser color input (Streamlit components v2), and a faceted
-channel-coverage histogram. PDF rendering uses each page's assigned
-`device-cmyk()` recipe and strips warm paper aging, gold back rules, and shadow
-colors from the print target. Print Atlas audits the actual generated page markup;
+channel-coverage histogram. Print Atlas audits the canonical HTML before export;
 when strict preflight is enabled, any color that activates a channel outside that
-page's policy blocks PDF generation. Defaults are EFFECT=C/M/K, NO EFFECT=K, and
-BACK=K, with Y=0 on all pages.
+page's policy blocks PDF generation. Screen-only `@media screen` colors are
+excluded from the print audit. Defaults are EFFECT=C/M/K, NO EFFECT=K, and BACK=K,
+with Y=0 on all pages.
 
-### Why WeasyPrint, and why CMYK actually works now
+The CMYK sliders are the print recipe and the preview source colors are derived
+from them. The PDF post-process can use a print-shop ICC profile via
+`print.cmyk_profile_path` or `PHACKER_CMYK_PROFILE`. With no profile, Ghostscript
+uses its standard CMYK conversion. This intentionally allows a small visual
+conversion difference while preserving the strict channel policy and avoiding a
+second layout implementation.
 
-matplotlib's PDF backend has **no CMYK support** — it only ever emits RGB/Gray
-PDF color operators (confirmed against matplotlib's own docs/bug tracker).
-The previous version of this tool generated PDFs via `matplotlib.backends.
-backend_pdf.PdfPages`, so despite the CMYK sliders, the exported PDF was
-always secretly RGB.
+### PDF engines and CMYK post-processing
 
-WeasyPrint v67+ added native CMYK support via CSS Color Module 5's
-`device-cmyk()` function — the exact C/M/Y/K percentages get written straight
-into the PDF's color operators, no ICC profile required for the basic case.
-That's what `lib/card_render.build_pdf_bytes()` relies on
-(`requirements.txt` pins `weasyprint>=67`). If you ever need to push further
-(a specific FOGRA/SWOP profile for a PDF/X-compliant file a print shop
-requires), WeasyPrint also supports `@color-profile` + `--pdf-variant`
-PDF/X-1a..X-5g — not wired up here since the default `device-cmyk()` path
-covers "give the litografía the right ink percentages," but worth knowing it
-exists.
+`lib/pdf_pipeline.py` tries Playwright/Chromium first in `auto` mode, using
+`page.pdf(print_background=True, prefer_css_page_size=True)` so CSS page size,
+bleed, and backgrounds are honored by a browser-grade print engine. If the
+browser renderer is unavailable, `auto` falls back to WeasyPrint; selecting
+`browser` or `weasyprint` makes the choice explicit.
 
-If `use_cmyk` is switched off in the Print Atlas page, the PDF falls back to
-the same hex the preview uses (still the correct layout, just not
-device-CMYK) — a "plain PDF" is just that toggle, not a different code path.
+After HTML-to-PDF layout, Ghostscript's vector `pdfwrite` device performs the
+optional RGB-to-CMYK conversion. This is deliberately not `html2pdf.js`: that
+library's documented pipeline goes through html2canvas and jsPDF, which turns the
+page into a raster image and is a poor fit for print-ready selectable text and
+SVG. The CMYK step is also not a generic promise that every PDF construct stays
+vector — transparency, gradients, and unusual SVG effects should be checked in
+preflight — so the atlas keeps print CSS restrained.
+
+`st.components.v2.component` is useful if we later want a browser button to emit
+raw PDF bytes back to Python, but it is not required for the server-side PDF
+button. A component can communicate Blob/base64 state; it cannot itself make the
+browser's native print dialog return a PDF file. The current implementation keeps
+the simpler server-side flow and uses the component system only for existing
+interactive controls.
 
 ### PRECOLOR — matches the real repo's own stated direction
 
@@ -132,13 +148,11 @@ documents two modes:
   *"the complexity we're trying to retire."*
 
 `lib.chart_generators.render_svg()` always renders with the real hex baked
-in (matching what's actually shipped in `public/cards/*.svg` today).
-`lib.card_render.recolor_svg_to_currentcolor()` mirrors
-`bake_card_svgs.py`'s `strip_colors_to_currentcolor()` regex exactly, used
-internally by the PDF path to cascade a `device-cmyk()` color into the
-chart's ink via CSS inheritance (matplotlib itself has no CMYK concept, so
-this is how the faint chart texture — not just the band — ends up genuinely
-CMYK in the PDF too).
+in (matching what's actually shipped in `public/cards/*.svg` today). The
+canonical HTML keeps those baked SVG colors unchanged; the browser PDF is
+converted after layout by the Python/Ghostscript pipeline. The old
+`recolor_svg_to_currentcolor()` helper remains available for experiments, but
+it is no longer part of the export path.
 
 ### Chart registry — 11 types, every one tunable
 
@@ -169,15 +183,22 @@ docstring.
 pip install -r requirements.txt
 ```
 
-WeasyPrint needs system libraries (Pango/Cairo/GDK-Pixbuf) that
-`packages.txt` installs automatically on Streamlit Community Cloud. Locally:
+The browser-first renderer needs Playwright plus a Chromium executable, and
+CMYK export needs Ghostscript. The WeasyPrint fallback also needs system
+libraries (Pango/Cairo/GDK-Pixbuf). Locally:
 
-- **macOS**: `brew install pango cairo gdk-pixbuf libffi`
-- **Debian/Ubuntu**: `sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info` (package name varies by release — if `apt-get` says a package "has no installation candidate," check what it suggests as a replacement; `libgdk-pixbuf2.0-0` was renamed to `libgdk-pixbuf-2.0-0` in newer Debian/Ubuntu, which is what broke this on Streamlit Community Cloud once already)
-- **Windows**: see [WeasyPrint's install docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#windows) (GTK3 runtime).
+```bash
+pip install -r requirements.txt
+python -m playwright install chromium
+```
 
-If those aren't installed, everything except the "Generate PDF" button still
-works — that button surfaces a clear error instead of crashing the app.
+- **macOS**: `brew install ghostscript pango cairo gdk-pixbuf libffi`
+- **Debian/Ubuntu**: `sudo apt-get install ghostscript chromium libpango-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info` (package names vary by release)
+- **Windows**: install Ghostscript and see [WeasyPrint's install docs](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#windows) for the fallback GTK3 runtime.
+
+If Chromium is unavailable, choose Auto or WeasyPrint and the app uses the
+fallback. If Ghostscript is unavailable, switch off CMYK export for a layout
+proof; the button surfaces a clear error instead of crashing the app.
 
 ```bash
 streamlit run app.py

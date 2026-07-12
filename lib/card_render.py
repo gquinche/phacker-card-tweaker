@@ -1,13 +1,11 @@
 """The single HTML/CSS card template — this IS the "single pipeline" the whole
-rewrite is about. One template renders:
-  (a) the live on-screen preview (embedded via st.html, real browser, hex colors)
-  (b) the print-ready PDF atlas (fed to WeasyPrint, CMYK colors via device-cmyk())
+rewrite is about. One canonical HTML/CSS document renders both the live browser
+preview and the downloadable PDF. Geometry, typography, SVGs, shadows, and
+textures are authored once; Python only chooses the PDF engine and optionally
+post-processes the finished PDF into CMYK.
 
-Layout/proportions/structure are IDENTICAL between (a) and (b) — only the color
-*expression* differs, because browsers don't understand CSS device-cmyk() but
-WeasyPrint (v67+) does. That split is the one deliberate exception to "single
-template"; everything else (sizes, band %, chart opacity, wash alpha, footer,
-stamp, creases) is shared.
+The HTML stays browser-safe RGB so the preview is the visual source of truth.
+This keeps print color policy from creating a second layout implementation.
 
 Mirrors, class-name-for-class-name where practical, the real game's
 src/styles/game-cards.css .print-card family and the print-atlas calibrator
@@ -21,7 +19,7 @@ import re
 
 from .card_back_render import card_back_css, card_back_label, render_card_back_html
 from .config_io import PAGE_SIZES_MM
-from .ink_control import css_from_hex, device_cmyk, preview_hex
+from .ink_control import preview_hex
 from .paper import paper_stock
 from .pseudo_stats import footer_text
 
@@ -51,18 +49,16 @@ def recolor_svg_to_currentcolor(svg_text: str, ink_hex: str) -> str:
     return svg_text
 
 
-def ink_css_color(cfg: dict, significant: bool, target: str) -> str:
-    """Return the CSS color for the band/wash/chart ink.
+def ink_css_color(cfg: dict, significant: bool, target: str = "preview") -> str:
+    """Return the canonical browser-safe ink color.
 
-    target="preview" -> hex (what every browser understands).
-    target="pdf"      -> device-cmyk(c% m% y% k%) when cfg.print.use_cmyk is on
-                         (WeasyPrint v67+ writes this straight into the PDF as
-                         literal CMYK — no ICC profile needed for this to work),
-                         else falls back to the same hex the preview uses.
+    ``target`` remains accepted for compatibility with older callers, but color
+    conversion is intentionally no longer mixed into HTML generation. The same
+    RGB/hex source is used for the preview and PDF; Python converts the finished
+    PDF in :mod:`lib.pdf_pipeline` when CMYK export is enabled.
     """
+    del target
     page = "effect" if significant else "no_effect"
-    if target == "pdf" and cfg["print"].get("use_cmyk", True):
-        return device_cmyk(cfg, page)
     return preview_hex(cfg, page)
 
 
@@ -72,12 +68,12 @@ CARD_CSS = """
   background: {paper_hex};
   border-radius: 12px;                    /* matches simplified-ui --card-radius */
   border: 1px solid {paper_edge};
-  box-shadow: {card_shadow};
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: {serif_stack};
-  background-image: {paper_texture};
+  background-image: none;
 }}
 .tw-card--hand {{ width: 234px; height: 327px; min-height: 327px; }}    /* simplified-ui: 1.5× base portrait */
 .tw-card--verdict {{ width: 140px; height: 190px; min-height: 190px; }}
@@ -109,28 +105,48 @@ CARD_CSS = """
 
 .tw-card__stamp {{ position:absolute; bottom:24px; right:4px; width:24px; height:14px; border:1.5px solid {stamp_color}; border-radius:2px; transform: rotate(-8deg); z-index:0; }}
 .tw-card__id {{ position:absolute; bottom:2px; right:3px; font-size:5pt; font-family: {typed_font_stack}; color: {id_color}; z-index:1; }}
+
+/* Screen atmosphere is explicit and never changes print geometry or color
+   source values. The PDF renderer receives the same base layout. */
+@media screen {{
+  .tw-card {{ box-shadow: {screen_card_shadow}; background-image: {screen_paper_texture}; }}
+  .tw-card__crease--h {{ background: {screen_crease_h}; }}
+  .tw-card__crease--v {{ background: {screen_crease_v}; }}
+  .tw-card__footer {{ background: {screen_footer_bg}; border-top-color: {screen_footer_rule}; }}
+  .tw-card__footer-rule {{ color: {screen_footer_text}; border-bottom-color: {screen_footer_rule}; }}
+  .tw-card__footer-stats {{ color: {screen_footer_stats}; }}
+  .tw-card__stamp {{ border-color: {screen_stamp_color}; }}
+}}
 """
 
-_PREVIEW_FONT_IMPORT = (
+_FONT_IMPORT = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&'
     'family=Special+Elite&display=swap" rel="stylesheet">'
 )
-_PREVIEW_SERIF = "'Playfair Display', Georgia, serif"
-_PREVIEW_TYPED = "'Special Elite', 'Courier New', monospace"
-# PDF path deliberately skips the Google Fonts fetch (no network dependency /
-# latency inside PDF generation) and falls back to bundled system serif/mono —
-# fine for a layout proof; swap for the real fonts at the final art stage.
-_PDF_SERIF = "'DejaVu Serif', Georgia, serif"
-_PDF_TYPED = "'DejaVu Sans Mono', 'Courier New', monospace"
+# One font stack for both targets. Browser-grade PDF rendering can load the
+# same web fonts as the preview; local/system fallbacks keep the HTML usable
+# when the font service is unavailable.
+_SERIF = "'Playfair Display', Georgia, 'DejaVu Serif', serif"
+_TYPED = "'Special Elite', 'Courier New', 'DejaVu Sans Mono', monospace"
 
 
-def _css_for(cfg: dict, target: str) -> str:
+def _css_for(cfg: dict, target: str = "preview") -> str:
+    """Return one layout stylesheet with screen atmosphere layered on top.
+
+    ``target`` is retained for compatibility with older callers. It no longer
+    changes geometry, fonts, or source colors; only ``@media screen`` adds the
+    optional atmosphere that belongs to the live preview.
+    """
+    del target
     paper = paper_stock(cfg["card"]["paper"])
-    is_pdf = target == "pdf"
-    use_cmyk = cfg["print"].get("use_cmyk", True)
-    paper_hex = css_from_hex(paper["hex"], target, use_cmyk)
-    paper_edge = css_from_hex(paper["edge"], target, use_cmyk)
+    paper_hex = paper["hex"]
+    paper_edge = paper["edge"]
+    card_cfg = cfg["card"]
+    screen_shadows = card_cfg.get("screen_shadows", True)
+    screen_paper_texture = card_cfg.get("screen_paper_texture", True)
+    screen_warm_creases = card_cfg.get("screen_warm_creases", True)
+
     # Keep hand cards at their shipped pixel height, but keep print cards in
     # millimetres for both the browser atlas and the final PDF.
     band_h_hand = "66px"
@@ -140,39 +156,32 @@ def _css_for(cfg: dict, target: str) -> str:
         if cfg["print"].get("round_corners", False)
         else "0"
     )
-    if is_pdf:
-        card_shadow = "none"
-        paper_texture = "none"
-        crease_h = "rgba(0,0,0,0.12)"
-        crease_v = "rgba(0,0,0,0.08)"
-        footer_rule = "rgba(0,0,0,0.20)"
-        footer_bg = paper_hex
-        footer_text = "rgba(0,0,0,0.55)"
-        footer_stats = "rgba(0,0,0,0.80)"
-        stamp_color = "rgba(0,0,0,0.18)"
-        id_color = "rgba(0,0,0,0.18)"
-    else:
-        card_shadow = "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,240,0.55)"
-        paper_texture = (
-            "radial-gradient(ellipse 35% 35% at 0% 0%, rgba(140,110,60,0.30), transparent 70%),"
-            " radial-gradient(ellipse 35% 35% at 100% 0%, rgba(140,110,60,0.25), transparent 70%),"
-            " radial-gradient(ellipse 40% 40% at 0% 100%, rgba(140,110,60,0.30), transparent 70%),"
-            " radial-gradient(ellipse 40% 40% at 100% 100%, rgba(140,110,60,0.25), transparent 70%)"
-        )
-        crease_h = "rgba(160,130,80,0.12)"
-        crease_v = "rgba(160,130,80,0.08)"
-        footer_rule = "rgba(140,110,60,0.20)"
-        footer_bg = "rgba(235,228,210,0.45)"
-        footer_text = "rgba(60,45,20,0.55)"
-        footer_stats = "rgba(40,30,10,0.80)"
-        stamp_color = "rgba(58,110,165,0.18)"
-        id_color = "rgba(0,0,0,0.18)"
+    shadow = (
+        "0 2px 6px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.25), "
+        "inset 0 1px 0 rgba(255,255,240,0.55)"
+        if screen_shadows else "none"
+    )
+    texture = (
+        "radial-gradient(ellipse 35% 35% at 0% 0%, rgba(140,110,60,0.30), transparent 70%),"
+        " radial-gradient(ellipse 35% 35% at 100% 0%, rgba(140,110,60,0.25), transparent 70%),"
+        " radial-gradient(ellipse 40% 40% at 0% 100%, rgba(140,110,60,0.30), transparent 70%),"
+        " radial-gradient(ellipse 40% 40% at 100% 100%, rgba(140,110,60,0.25), transparent 70%)"
+        if screen_paper_texture else "none"
+    )
+    screen_crease_h = "rgba(160,130,80,0.12)" if screen_warm_creases else "rgba(0,0,0,0.12)"
+    screen_crease_v = "rgba(160,130,80,0.08)" if screen_warm_creases else "rgba(0,0,0,0.08)"
+    screen_footer_rule = "rgba(140,110,60,0.20)" if screen_warm_creases else "rgba(0,0,0,0.20)"
+    screen_footer_bg = "rgba(235,228,210,0.45)" if screen_paper_texture else paper_hex
+    screen_footer_text = "rgba(60,45,20,0.55)" if screen_warm_creases else "rgba(0,0,0,0.55)"
+    screen_footer_stats = "rgba(40,30,10,0.80)" if screen_warm_creases else "rgba(0,0,0,0.80)"
+    screen_stamp_color = "rgba(58,110,165,0.18)" if screen_warm_creases else "rgba(0,0,0,0.18)"
+
     return CARD_CSS.format(
         paper_hex=paper_hex,
         paper_edge=paper_edge,
-        serif_stack=_PDF_SERIF if is_pdf else _PREVIEW_SERIF,
-        print_font_stack=_PDF_SERIF if is_pdf else _PREVIEW_SERIF,
-        typed_font_stack=_PDF_TYPED if is_pdf else _PREVIEW_TYPED,
+        serif_stack=_SERIF,
+        print_font_stack=_SERIF,
+        typed_font_stack=_TYPED,
         band_h_hand=band_h_hand,
         band_h_verdict="38px",
         band_h_print=band_h_print,
@@ -180,16 +189,23 @@ def _css_for(cfg: dict, target: str) -> str:
         print_w=cfg["print"]["card_w_mm"],
         print_h=cfg["print"]["card_h_mm"],
         print_radius=print_radius,
-        card_shadow=card_shadow,
-        paper_texture=paper_texture,
-        crease_h=crease_h,
-        crease_v=crease_v,
-        footer_rule=footer_rule,
-        footer_bg=footer_bg,
-        footer_text=footer_text,
-        footer_stats=footer_stats,
-        stamp_color=stamp_color,
-        id_color=id_color,
+        crease_h="rgba(0,0,0,0.12)",
+        crease_v="rgba(0,0,0,0.08)",
+        footer_rule="rgba(0,0,0,0.20)",
+        footer_bg=paper_hex,
+        footer_text="rgba(0,0,0,0.55)",
+        footer_stats="rgba(0,0,0,0.80)",
+        stamp_color="rgba(0,0,0,0.18)",
+        id_color="rgba(0,0,0,0.18)",
+        screen_card_shadow=shadow,
+        screen_paper_texture=texture,
+        screen_crease_h=screen_crease_h,
+        screen_crease_v=screen_crease_v,
+        screen_footer_rule=screen_footer_rule,
+        screen_footer_bg=screen_footer_bg,
+        screen_footer_text=screen_footer_text,
+        screen_footer_stats=screen_footer_stats,
+        screen_stamp_color=screen_stamp_color,
     )
 
 
@@ -204,14 +220,11 @@ def render_card_html(
 ) -> str:
     """Build ONE `.tw-card` element's markup (no surrounding <html>/<style> —
     callers wrap N of these with `_css_for()` once per page/preview)."""
-    ink = ink_css_color(cfg, significant, target)
-    if target == "pdf" and cfg["print"].get("use_cmyk", True):
-        # Cascade the CMYK ink into the chart's baked-hex SVG via currentColor.
-        finding_hex = cfg["palette"]["SIG"] if significant else cfg["palette"]["NULL"]
-        chart_svg = recolor_svg_to_currentcolor(chart_svg, finding_hex)
-        chart_style = f'color: {ink};'
-    else:
-        chart_style = ""
+    del target
+    ink = ink_css_color(cfg, significant)
+    # SVGs remain baked RGB/hex in the canonical document. The CMYK pass runs
+    # after layout and converts the finished PDF, so chart geometry is shared.
+    chart_style = ""
 
     label = "EFFECT" if significant else "NO EFFECT"
     band_class = "significant" if significant else "null"
@@ -237,11 +250,7 @@ def render_card_html(
         if cfg["print"].get("show_card_id", True) and size == "print"
         else ""
     )
-    paper_color = css_from_hex(
-        paper_stock(cfg["card"]["paper"])["hex"],
-        target,
-        cfg["print"].get("use_cmyk", True),
-    )
+    paper_color = paper_stock(cfg["card"]["paper"])["hex"]
 
     return f"""
 <div class="tw-card {size_class}" style="background: {paper_color};">
@@ -262,7 +271,7 @@ def render_card_html(
 def render_preview_html(cards_html: list[str], cfg: dict, gap_px: int = 18) -> str:
     """Wrap N card divs into one standalone HTML doc for st.html embedding."""
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-{_PREVIEW_FONT_IMPORT}
+{_FONT_IMPORT}
 <style>
 body {{ margin:0; padding: 16px; background:#2f2a24; display:flex; flex-wrap:wrap; gap:{gap_px}px; align-items:flex-start; }}
 {_css_for(cfg, "preview")}
@@ -276,16 +285,18 @@ def render_print_atlas_html(
     sig_svgs: list[str],
     null_svgs: list[str],
     *,
-    target: str = "pdf",
+    target: str = "preview",
 ) -> str:
-    """Build front sheets plus optional matching SVG card-back sheets.
+    """Build the canonical atlas HTML used by preview and PDF rendering.
 
-    Browser and PDF targets share the same mm-based page, grid, card, and title layout.
-    Only color expression differs: preview uses browser-safe hex; PDF can use
-    device-cmyk() and recolor baked SVG ink through currentColor.
+    ``target`` remains accepted for compatibility with older callers, but it
+    no longer changes layout, typography, SVGs, or colors. Screen-only chrome
+    is isolated in ``@media screen`` rules so the browser and PDF consume the
+    same document.
     """
     if target not in {"preview", "pdf"}:
         raise ValueError(f"Unsupported atlas target: {target}")
+    del target
     p = cfg["print"]
     page_w, page_h = PAGE_SIZES_MM[p["page"]]
     cw, ch, bleed = p["card_w_mm"], p["card_h_mm"], p["bleed_mm"]
@@ -303,7 +314,6 @@ def render_print_atlas_html(
                 significant=significant,
                 chart_svg=svg,
                 cfg=cfg,
-                target=target,
                 size="print",
             )
             cells.append(f'<div class="tw-cell">{card_html}</div>')
@@ -317,7 +327,7 @@ def render_print_atlas_html(
         page_key = "effect" if significant else "no_effect"
         title = "EFFECT CARDS" if significant else "NO EFFECT CARDS"
         subtitle = "SIGNIFICANT RESULTS" if significant else "NULL RESULTS"
-        atlas_ink = ink_css_color(cfg, significant, target)
+        atlas_ink = ink_css_color(cfg, significant)
         grid_w = cols * cell_w
         grid_h = rows * cell_h
         grid_left = (page_w - grid_w) / 2
@@ -339,11 +349,7 @@ def render_print_atlas_html(
     def build_back_page(copy_index: int) -> str:
         n = cols * rows
         token = cfg["card"].get("back_texture", "tex-chevron")
-        back_ink = (
-            device_cmyk(cfg, "back")
-            if target == "pdf" and cfg["print"].get("use_cmyk", True)
-            else preview_hex(cfg, "back")
-        )
+        back_ink = preview_hex(cfg, "back")
         cells = []
         for i in range(n):
             card_html = render_card_back_html(
@@ -351,7 +357,6 @@ def render_print_atlas_html(
                 token=token,
                 size="print",
                 uid=f"back-{copy_index}-{i}",
-                target=target,
             )
             cells.append(f'<div class="tw-cell">{card_html}</div>')
         grid_w = cols * cell_w
@@ -375,24 +380,25 @@ def render_print_atlas_html(
     if p.get("include_back_pages", True):
         # One matching back sheet per front sheet for duplex/flip printing.
         body += build_back_page(1) + build_back_page(2)
-    font_import = _PREVIEW_FONT_IMPORT if target == "preview" else ""
-    body_class = "tw-preview-stage" if target == "preview" else "tw-pdf-body"
-    use_cmyk = cfg["print"].get("use_cmyk", True)
-    page_background = css_from_hex("#FFFFFF", target, use_cmyk)
-    preview_stage_css = "" if target == "pdf" else """
-body.tw-preview-stage {
-  min-height:100vh;
-  padding:10mm;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:10mm;
-  background:#d7d4ce;
-}
-body.tw-preview-stage .tw-page {
-  page-break-after:auto;
-  box-shadow:0 2mm 7mm rgba(35,31,25,0.24);
-  outline:0.25mm solid rgba(0,0,0,0.12);
+    font_import = _FONT_IMPORT
+    body_class = "tw-preview-stage"
+    page_background = "#FFFFFF"
+    preview_stage_css = """
+@media screen {
+  body.tw-preview-stage {
+    min-height:100vh;
+    padding:10mm;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10mm;
+    background:#d7d4ce;
+  }
+  body.tw-preview-stage .tw-page {
+    page-break-after:auto;
+    box-shadow:0 2mm 7mm rgba(35,31,25,0.24);
+    outline:0.25mm solid rgba(0,0,0,0.12);
+  }
 }
 """
 
@@ -418,13 +424,13 @@ body {{ margin: 0; }}
   grid-template-columns: 1fr auto;
   align-items:end;
   gap:0 4mm;
-  font-family:{_PDF_SERIF if target == "pdf" else _PREVIEW_SERIF};
+  font-family:{_SERIF};
   border-bottom:0.35mm solid currentColor;
   padding-bottom:1.2mm;
 }}
 .tw-atlas-header__kicker {{
   grid-column:1 / -1;
-  font-family:{_PDF_TYPED if target == "pdf" else _PREVIEW_TYPED};
+  font-family:{_TYPED};
   font-size:2.1mm;
   letter-spacing:0.18em;
   font-weight:700;
@@ -436,7 +442,7 @@ body {{ margin: 0; }}
   line-height:1;
 }}
 .tw-atlas-header__meta {{
-  font-family:{_PDF_TYPED if target == "pdf" else _PREVIEW_TYPED};
+  font-family:{_TYPED};
   font-size:2.1mm;
   letter-spacing:0.08em;
   white-space:nowrap;
@@ -451,22 +457,15 @@ body {{ margin: 0; }}
   border: 0.3pt dashed rgba(0,0,0,.15);
 }}
 .tw-calstrip {{ position:absolute; bottom:0; left:0; right:0; display:flex; }}
-{_css_for(cfg, target)}
-{card_back_css(cfg, cfg["card"].get("back_texture", "tex-chevron"), target)}
+{_css_for(cfg)}
+{card_back_css(cfg, cfg["card"].get("back_texture", "tex-chevron"))}
 </style></head><body class="{body_class}">
 {body}
 </body></html>"""
 
 
-def build_pdf_bytes(html: str) -> bytes:
-    """Render the print-atlas HTML to a real PDF via WeasyPrint.
+def build_pdf_bytes(html: str, **kwargs) -> bytes:
+    """Backward-compatible wrapper around the browser-first PDF pipeline."""
+    from .pdf_pipeline import build_pdf_bytes as build_pipeline_pdf
 
-    Lazily imported so the rest of the app works even where WeasyPrint's
-    system libs (pango/cairo) aren't installed — only the PDF button fails,
-    with a clear message, rather than the whole app crashing at import time.
-    On Streamlit Community Cloud, packages.txt in this repo installs those
-    libs automatically; locally see the README.
-    """
-    from weasyprint import HTML  # noqa: WPS433 (intentional lazy import)
-
-    return HTML(string=html).write_pdf(output_intent="device-cmyk")
+    return build_pipeline_pdf(html, **kwargs)
