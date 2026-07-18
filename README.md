@@ -13,8 +13,8 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
 4. **Export** a YAML config to back up into `gquinche/phacker-game` (branch
    `experiment/simplified-ui` as of 2026-07 — that's where the SVG migration,
    `bake_card_svgs.py`, and `phacker_cards.ipynb` actually live; `trunk` is
-   stale for card art), a six-face SVG ZIP, and a print-ready **CMYK** PDF atlas
-   for the litografía.
+   stale for card art), a six-face SVG ZIP, a print-ready **CMYK** multipage PDF
+   atlas, and an optional ZIP with one front-only or front-and-back PDF per card.
 
 ## Architecture
 
@@ -36,7 +36,7 @@ lib/
   dice_render.py          contour-only chart reduction, die-face SVGs, preview, and ZIP packaging
   card_render.py          THE single card/atlas HTML+CSS template shared by preview and PDF
   card_back_render.py     simplified-ui card backs from real SVG motifs, one shared layout
-  pdf_pipeline.py         browser-first HTML PDF rendering + optional Ghostscript CMYK pass
+  pdf_pipeline.py         browser-first PDF + Ghostscript CMYK + vector-safe per-card ZIP splitting
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
   ink_control.py           page recipes, histogram + foreign-ink audit
@@ -133,6 +133,14 @@ page into a raster image and is a poor fit for print-ready selectable text and
 SVG. The CMYK step is also not a generic promise that every PDF construct stays
 vector — transparency, gradients, and unusual SVG effects should be checked in
 preflight — so the atlas keeps print CSS restrained.
+
+Print Atlas keeps that multipage document as the default export and also offers
+one PDF per distinct card. The separate-files path renders all card-sized pages
+once, applies the same optional CMYK pass once, then uses `pypdf` to split the
+result into a ZIP without rasterizing it or launching Chromium for every card.
+When matching backs are enabled, each card PDF has its front on page 1 and its
+back on page 2; otherwise each file is front-only. A manifest records the exact
+filenames and page count.
 
 `st.components.v2.component` is useful if we later want a browser button to emit
 raw PDF bytes back to Python, but it is not required for the server-side PDF

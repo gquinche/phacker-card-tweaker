@@ -12,10 +12,14 @@ ship Chromium.
 """
 from __future__ import annotations
 
+import io
+import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -201,3 +205,90 @@ def build_pdf_bytes(
 
     selected_profile = profile_path or os.environ.get("PHACKER_CMYK_PROFILE")
     return convert_pdf_bytes_to_cmyk(raw_pdf, profile_path=selected_profile)
+
+
+def _safe_pdf_stem(card_id: str) -> str:
+    stem = re.sub(r"[^a-z0-9]+", "-", card_id.lower()).strip("-")
+    return stem or "card"
+
+
+def split_card_pdf_zip(
+    pdf_bytes: bytes,
+    card_ids: Sequence[str],
+    *,
+    pages_per_card: int,
+) -> bytes:
+    """Split one batch PDF into a ZIP containing one vector PDF per card."""
+    if pages_per_card not in {1, 2}:
+        raise ValueError("pages_per_card must be 1 or 2")
+    if not card_ids:
+        raise ValueError("At least one card ID is required")
+
+    try:
+        from pypdf import PdfReader, PdfWriter
+    except ImportError as exc:  # pragma: no cover - deployment dependency
+        raise PdfRendererUnavailable("Individual PDF export requires pypdf") from exc
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    expected_pages = len(card_ids) * pages_per_card
+    if len(reader.pages) != expected_pages:
+        raise PdfPipelineError(
+            f"Individual PDF batch produced {len(reader.pages)} pages; expected {expected_pages}"
+        )
+
+    archive_buffer = io.BytesIO()
+    manifest_cards = []
+    used_stems: dict[str, int] = {}
+    with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for card_index, card_id in enumerate(card_ids):
+            base_stem = _safe_pdf_stem(card_id)
+            duplicate_index = used_stems.get(base_stem, 0) + 1
+            used_stems[base_stem] = duplicate_index
+            stem = base_stem if duplicate_index == 1 else f"{base_stem}-{duplicate_index}"
+            filename = f"{stem}.pdf"
+
+            writer = PdfWriter()
+            first_page = card_index * pages_per_card
+            for page_index in range(first_page, first_page + pages_per_card):
+                writer.add_page(reader.pages[page_index])
+            pdf_buffer = io.BytesIO()
+            writer.write(pdf_buffer)
+            archive.writestr(filename, pdf_buffer.getvalue())
+            manifest_cards.append({
+                "card_id": card_id,
+                "filename": filename,
+                "pages": pages_per_card,
+            })
+
+        archive.writestr(
+            "manifest.json",
+            json.dumps({
+                "schema_version": 1,
+                "pages_per_card": pages_per_card,
+                "cards": manifest_cards,
+            }, indent=2) + "\n",
+        )
+    return archive_buffer.getvalue()
+
+
+def build_individual_pdf_zip(
+    html: str,
+    card_ids: Sequence[str],
+    *,
+    include_back_pages: bool,
+    renderer: str = "auto",
+    use_cmyk: bool = True,
+    profile_path: Optional[str] = None,
+) -> bytes:
+    """Render once, then split into one PDF per card to avoid N browser launches."""
+    batch_pdf = build_pdf_bytes(
+        html,
+        renderer=renderer,
+        use_cmyk=use_cmyk,
+        profile_path=profile_path,
+    )
+    return split_card_pdf_zip(
+        batch_pdf,
+        card_ids,
+        pages_per_card=2 if include_back_pages else 1,
+    )

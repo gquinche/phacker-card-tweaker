@@ -157,7 +157,13 @@ def load_config_into_widgets(cfg: dict) -> None:
         for param_name, value in params.items():
             st.session_state[param_widget_key(chart_name, param_name)] = _widget_value(value)
 
-    st.session_state.pop("_last_pdf", None)
+    for export_key in (
+        "_last_pdf",
+        "_last_pdf_config",
+        "_last_individual_pdf_zip",
+        "_last_individual_pdf_zip_config",
+    ):
+        st.session_state.pop(export_key, None)
 
 
 def initialize_editor(cfg: dict) -> None:

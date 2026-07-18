@@ -36,6 +36,19 @@ class DiceEditorStateTests(unittest.TestCase):
         })
         self.assertEqual(len(cfg["dice"]["faces"]), 6)
 
+    def test_loading_config_clears_cached_atlas_and_individual_exports(self):
+        for key in (
+            "_last_pdf",
+            "_last_pdf_config",
+            "_last_individual_pdf_zip",
+            "_last_individual_pdf_zip_config",
+        ):
+            fake_streamlit.session_state[key] = b"stale"
+
+        load_config_into_widgets(copy.deepcopy(FALLBACK_CONFIG))
+
+        self.assertFalse(any(key.startswith("_last_") for key in fake_streamlit.session_state))
+
     def test_fallback_and_renderer_defaults_stay_in_sync(self):
         self.assertEqual(FALLBACK_CONFIG["dice"]["faces"], [
             dict(spec) for spec in DEFAULT_FACE_SPECS
