@@ -7,11 +7,14 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
    shipped in the game — not an approximation.
 2. **Preview** the result through the exact same HTML/CSS template that also
    drives the PDF, so what you see is what prints.
-3. **Export** a YAML config to back up into `gquinche/phacker-game` (branch
+3. **Build dice glyphs** from the same chart family: six independently selectable,
+   distance-readable SVG faces with contour-only rendering, optional blue/gray
+   finding ink, and a configurable die background.
+4. **Export** a YAML config to back up into `gquinche/phacker-game` (branch
    `experiment/simplified-ui` as of 2026-07 — that's where the SVG migration,
    `bake_card_svgs.py`, and `phacker_cards.ipynb` actually live; `trunk` is
-   stale for card art), and a print-ready **CMYK** PDF atlas for the
-   litografía.
+   stale for card art), a six-face SVG ZIP, a print-ready **CMYK** multipage PDF
+   atlas, and an optional ZIP with one front-only or front-and-back PDF per card.
 
 ## Architecture
 
@@ -19,6 +22,7 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
 app.py                 entry point — st.navigation/st.Page, shared sidebar (YAML import/export)
 pages/
   chart_lab.py          per-chart-type tuning with ordinary keyed Streamlit widgets
+  dice_svg.py           six configurable minimal SVG die faces + preview/downloads
   ink_lab.py            per-page CMYK recipes, C/K plane, policies, and histogram
   card_preview.py        full gallery, every chart type × both findings, at real card size
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (browser-first)
@@ -29,9 +33,10 @@ lib/
                           ported from tools/card-art/fake_charts_cardart.py
   chart_params.py         per-chart tunable-param schemas (every chart, not just
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
+  dice_render.py          contour-only chart reduction, die-face SVGs, preview, and ZIP packaging
   card_render.py          THE single card/atlas HTML+CSS template shared by preview and PDF
   card_back_render.py     simplified-ui card backs from real SVG motifs, one shared layout
-  pdf_pipeline.py         browser-first HTML PDF rendering + optional Ghostscript CMYK pass
+  pdf_pipeline.py         browser-first PDF + Ghostscript CMYK + vector-safe per-card ZIP splitting
   config_io.py            YAML load/save/merge, page-size table
   editor_state.py          keyed widget values -> render/export config snapshot
   ink_control.py           page recipes, histogram + foreign-ink audit
@@ -129,6 +134,14 @@ SVG. The CMYK step is also not a generic promise that every PDF construct stays
 vector — transparency, gradients, and unusual SVG effects should be checked in
 preflight — so the atlas keeps print CSS restrained.
 
+Print Atlas keeps that multipage document as the default export and also offers
+one PDF per distinct card. The separate-files path renders all card-sized pages
+once, applies the same optional CMYK pass once, then uses `pypdf` to split the
+result into a ZIP without rasterizing it or launching Chromium for every card.
+When matching backs are enabled, each card PDF has its front on page 1 and its
+back on page 2; otherwise each file is front-only. A manifest records the exact
+filenames and page count.
+
 `st.components.v2.component` is useful if we later want a browser button to emit
 raw PDF bytes back to Python, but it is not required for the server-side PDF
 button. A component can communicate Blob/base64 state; it cannot itself make the
@@ -153,6 +166,24 @@ canonical HTML keeps those baked SVG colors unchanged; the browser PDF is
 converted after layout by the Python/Ghostscript pipeline. The old
 `recolor_svg_to_currentcolor()` helper remains available for experiments, but
 it is no longer part of the export path.
+
+### Dice SVG generator
+
+Dice SVG reuses the 11 existing matplotlib generators, then applies a separate
+small-scale reduction pass: axis furniture, labels, legends, grids, hatches,
+area fills, and faint decorative clouds are removed; the remaining paths and
+markers become heavier contour strokes inside a rounded 256 × 256 die face.
+This leaves the card-art pipeline untouched while giving the physical die (and a
+future ladder-of-credibility UI) a vocabulary that remains recognizable from
+across the table.
+
+The recommended six use distinct silhouettes: Gaussian curves, box-and-whisker,
+bar, step curves, forest, and parallel-trends. They are only defaults: every
+face selector can use any registered chart, choose EFFECT or NO EFFECT geometry, and set its
+own deterministic seed. Colored outlines reuse the live Ink Lab blue/gray
+palette; disabling them switches every face to one neutral dark contour. The die
+background is independently configurable. Export produces six standalone SVGs
+and a JSON manifest in one ZIP, with individual SVG downloads available too.
 
 ### Chart registry — 11 types, every one tunable
 

@@ -38,6 +38,21 @@ precolor: true      # bake the finding hex directly into exported SVGs (the
                      # it explicitly calls "the complexity we're trying to
                      # retire"). Kept here as a toggle for exporting either way.
 
+# Six minimal chart glyphs for a physical die / future credibility ladder.
+# Every face can use any chart in lib/chart_generators.py. `significant` chooses
+# the blue EFFECT geometry/ink or gray NO EFFECT geometry/ink when colored
+# outlines are enabled; switching color off uses one neutral contour ink.
+dice:
+  background: "#f7f4ec"
+  colored_outlines: true
+  faces:
+    - {chart: gaussian_curves, significant: true, seed: 0}
+    - {chart: box_plot, significant: false, seed: 1}
+    - {chart: bar_chart, significant: true, seed: 0}
+    - {chart: km_curve, significant: false, seed: 1}
+    - {chart: forest_plot, significant: true, seed: 0}
+    - {chart: did_parallel_trends, significant: true, seed: 0}
+
 # Per-chart tunable params (sample sizes, effect-size ranges, noise
 # levels) -- one sub-block per chart type, generated from
 # lib/chart_params.CHART_PARAM_SCHEMAS defaults. This is what lets every

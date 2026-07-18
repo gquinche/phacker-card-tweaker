@@ -302,13 +302,25 @@ def render_print_atlas_html(
     cw, ch, bleed = p["card_w_mm"], p["card_h_mm"], p["bleed_mm"]
     cell_w, cell_h = cw + bleed * 2, ch + bleed * 2
     cols, rows = int(p["cols"]), int(p["rows"])
+    capacity = cols * rows
+    if capacity < 1:
+        raise ValueError("Print atlas rows and columns must produce at least one cell")
+    if not sig_svgs or not null_svgs:
+        raise ValueError("Print atlas requires at least one EFFECT and one NO EFFECT SVG")
 
-    def build_page(significant: bool, svg_pool: list[str]) -> str:
-        n = cols * rows
+    def build_page(
+        significant: bool,
+        svg_pool: list[str],
+        start_index: int,
+        total_count: int,
+        sheet_number: int,
+        sheet_count: int,
+    ) -> str:
+        n = len(svg_pool)
         cells = []
-        for i in range(n):
-            svg = svg_pool[i % len(svg_pool)]
-            card_id = ("E" if significant else "N") + f"{i:02d}"
+        for local_index, svg in enumerate(svg_pool):
+            card_index = start_index + local_index
+            card_id = ("E" if significant else "N") + f"{card_index:02d}"
             card_html = render_card_html(
                 card_id=card_id,
                 significant=significant,
@@ -327,6 +339,7 @@ def render_print_atlas_html(
         page_key = "effect" if significant else "no_effect"
         title = "EFFECT CARDS" if significant else "NO EFFECT CARDS"
         subtitle = "SIGNIFICANT RESULTS" if significant else "NULL RESULTS"
+        sheet_meta = f"{subtitle} · {total_count} CARDS · SHEET {sheet_number}/{sheet_count}"
         atlas_ink = ink_css_color(cfg, significant)
         grid_w = cols * cell_w
         grid_h = rows * cell_h
@@ -338,7 +351,7 @@ def render_print_atlas_html(
   <header class="tw-atlas-header" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:{atlas_ink};">
     <span class="tw-atlas-header__kicker">P-HACKER · RECORDS BUREAU</span>
     <span class="tw-atlas-header__title">{title}</span>
-    <span class="tw-atlas-header__meta">{subtitle} · {n} CARDS</span>
+    <span class="tw-atlas-header__meta">{sheet_meta}</span>
   </header>
   <div class="tw-grid" style="grid-template-columns: repeat({cols}, {cell_w:.2f}mm); grid-template-rows: repeat({rows}, {cell_h:.2f}mm); left:{grid_left:.2f}mm; top:{grid_top:.2f}mm;">
     {''.join(cells)}
@@ -346,17 +359,22 @@ def render_print_atlas_html(
   {cal_strip}
 </section>"""
 
-    def build_back_page(copy_index: int) -> str:
-        n = cols * rows
+    def build_back_page(
+        uid_index: int,
+        sheet_number: int,
+        card_count: int,
+        total_count: int,
+        sheet_count: int,
+    ) -> str:
         token = cfg["card"].get("back_texture", "tex-chevron")
         back_ink = preview_hex(cfg, "back")
         cells = []
-        for i in range(n):
+        for i in range(card_count):
             card_html = render_card_back_html(
                 cfg=cfg,
                 token=token,
                 size="print",
-                uid=f"back-{copy_index}-{i}",
+                uid=f"back-{uid_index}-{i}",
             )
             cells.append(f'<div class="tw-cell">{card_html}</div>')
         grid_w = cols * cell_w
@@ -369,17 +387,54 @@ def render_print_atlas_html(
   <header class="tw-atlas-header tw-atlas-header--back" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{header_top:.2f}mm; color:{back_ink};">
     <span class="tw-atlas-header__kicker">P-HACKER · RECORDS BUREAU</span>
     <span class="tw-atlas-header__title">CARD BACKS</span>
-    <span class="tw-atlas-header__meta">{card_back_label(token).upper()} · {n} CARDS</span>
+    <span class="tw-atlas-header__meta">{card_back_label(token).upper()} · {total_count} CARDS · SHEET {sheet_number}/{sheet_count}</span>
   </header>
   <div class="tw-grid" style="grid-template-columns: repeat({cols}, {cell_w:.2f}mm); grid-template-rows: repeat({rows}, {cell_h:.2f}mm); left:{grid_left:.2f}mm; top:{grid_top:.2f}mm;">
     {''.join(cells)}
   </div>
 </section>"""
 
-    body = build_page(True, sig_svgs) + build_page(False, null_svgs)
+    front_sheets: list[tuple[bool, list[str], int, int, int]] = []
+    for significant, svg_pool in ((True, sig_svgs), (False, null_svgs)):
+        sheet_count = (len(svg_pool) + capacity - 1) // capacity
+        for sheet_index, start in enumerate(range(0, len(svg_pool), capacity), start=1):
+            front_sheets.append((
+                significant,
+                svg_pool[start:start + capacity],
+                start,
+                sheet_index,
+                sheet_count,
+            ))
+
+    body = "".join(
+        build_page(
+            significant,
+            sheet_svgs,
+            start,
+            len(sig_svgs if significant else null_svgs),
+            sheet_number,
+            sheet_count,
+        )
+        for significant, sheet_svgs, start, sheet_number, sheet_count in front_sheets
+    )
     if p.get("include_back_pages", True):
         # One matching back sheet per front sheet for duplex/flip printing.
-        body += build_back_page(1) + build_back_page(2)
+        body += "".join(
+            build_back_page(
+                global_sheet_number,
+                sheet_number,
+                len(sheet_svgs),
+                len(sig_svgs if significant else null_svgs),
+                sheet_count,
+            )
+            for global_sheet_number, (
+                significant,
+                sheet_svgs,
+                _start,
+                sheet_number,
+                sheet_count,
+            ) in enumerate(front_sheets, start=1)
+        )
     font_import = _FONT_IMPORT
     body_class = "tw-preview-stage"
     page_background = "#FFFFFF"
@@ -461,6 +516,81 @@ body {{ margin: 0; }}
 {card_back_css(cfg, cfg["card"].get("back_texture", "tex-chevron"))}
 </style></head><body class="{body_class}">
 {body}
+</body></html>"""
+
+
+def render_individual_card_pages_html(
+    cfg: dict,
+    cards: list[tuple[str, bool, str]],
+) -> str:
+    """Render one card-sized PDF page per front, followed by its optional back.
+
+    The resulting page order is intentionally stable so :mod:`lib.pdf_pipeline`
+    can split one efficient batch render into one PDF per card without relaying
+    out the card or launching a browser once per file.
+    """
+    if not cards:
+        raise ValueError("Individual PDF export requires at least one card")
+
+    p = cfg["print"]
+    bleed = float(p["bleed_mm"])
+    page_w = float(p["card_w_mm"]) + bleed * 2
+    page_h = float(p["card_h_mm"]) + bleed * 2
+    token = cfg["card"].get("back_texture", "tex-chevron")
+    include_backs = bool(p.get("include_back_pages", True))
+    pages = []
+
+    for index, (card_id, significant, chart_svg) in enumerate(cards):
+        card_html = render_card_html(
+            card_id=card_id,
+            significant=significant,
+            chart_svg=chart_svg,
+            cfg=cfg,
+            size="print",
+        )
+        page_key = "effect" if significant else "no_effect"
+        pages.append(
+            f'<section class="tw-page" data-page="{page_key}" data-card-id="{card_id}">'
+            f'<div class="tw-cell">{card_html}</div></section>'
+        )
+        if include_backs:
+            back_html = render_card_back_html(
+                cfg=cfg,
+                token=token,
+                size="print",
+                uid=f"individual-back-{index}",
+            )
+            pages.append(
+                f'<section class="tw-page" data-page="back" data-card-id="{card_id}">'
+                f'<div class="tw-cell">{back_html}</div></section>'
+            )
+
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">{_FONT_IMPORT}<style>
+@page {{ size: {page_w:.2f}mm {page_h:.2f}mm; margin: 0; }}
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{ margin: 0; }}
+.tw-page {{
+  width:{page_w:.2f}mm;
+  height:{page_h:.2f}mm;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  page-break-after:always;
+}}
+.tw-page:last-child {{ page-break-after:avoid; }}
+.tw-cell {{
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:0.3pt dashed rgba(0,0,0,.15);
+}}
+{_css_for(cfg)}
+{card_back_css(cfg, token)}
+</style></head><body>
+{''.join(pages)}
 </body></html>"""
 
 

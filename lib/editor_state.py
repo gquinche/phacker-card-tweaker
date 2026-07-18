@@ -36,6 +36,26 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "hatch_box_control": ("hatch", "box", "0"),
     "hatch_box_treatment": ("hatch", "box", "1"),
     "hatch_gauss": ("hatch", "gauss"),
+    "dice_background": ("dice", "background"),
+    "dice_colored_outlines": ("dice", "colored_outlines"),
+    "dice_face_1_chart": ("dice", "faces", "0", "chart"),
+    "dice_face_1_significant": ("dice", "faces", "0", "significant"),
+    "dice_face_1_seed": ("dice", "faces", "0", "seed"),
+    "dice_face_2_chart": ("dice", "faces", "1", "chart"),
+    "dice_face_2_significant": ("dice", "faces", "1", "significant"),
+    "dice_face_2_seed": ("dice", "faces", "1", "seed"),
+    "dice_face_3_chart": ("dice", "faces", "2", "chart"),
+    "dice_face_3_significant": ("dice", "faces", "2", "significant"),
+    "dice_face_3_seed": ("dice", "faces", "2", "seed"),
+    "dice_face_4_chart": ("dice", "faces", "3", "chart"),
+    "dice_face_4_significant": ("dice", "faces", "3", "significant"),
+    "dice_face_4_seed": ("dice", "faces", "3", "seed"),
+    "dice_face_5_chart": ("dice", "faces", "4", "chart"),
+    "dice_face_5_significant": ("dice", "faces", "4", "significant"),
+    "dice_face_5_seed": ("dice", "faces", "4", "seed"),
+    "dice_face_6_chart": ("dice", "faces", "5", "chart"),
+    "dice_face_6_significant": ("dice", "faces", "5", "significant"),
+    "dice_face_6_seed": ("dice", "faces", "5", "seed"),
     "effect_c": ("cmyk", "effect", "0"),
     "effect_m": ("cmyk", "effect", "1"),
     "effect_y": ("cmyk", "effect", "2"),
@@ -137,7 +157,13 @@ def load_config_into_widgets(cfg: dict) -> None:
         for param_name, value in params.items():
             st.session_state[param_widget_key(chart_name, param_name)] = _widget_value(value)
 
-    st.session_state.pop("_last_pdf", None)
+    for export_key in (
+        "_last_pdf",
+        "_last_pdf_config",
+        "_last_individual_pdf_zip",
+        "_last_individual_pdf_zip_config",
+    ):
+        st.session_state.pop(export_key, None)
 
 
 def initialize_editor(cfg: dict) -> None:
