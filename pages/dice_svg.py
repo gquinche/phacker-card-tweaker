@@ -28,8 +28,8 @@ with st.sidebar:
         "Transparent SVG background",
         key="dice_transparent_background",
         help=(
-            "Enabled by default: exports no background fill, ready to import into Orca "
-            "and convert into a texture. The chart contours and die outline remain."
+            "Enabled by default: exports no background fill or die frame, ready to import "
+            "into Orca and convert into a texture. Only the graph contours remain."
         ),
     )
     st.color_picker(

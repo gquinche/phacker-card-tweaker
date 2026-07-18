@@ -79,7 +79,7 @@ class DiceRenderTests(unittest.TestCase):
         self.assertIn("#f7f4ec", colored)
         self.assertIn("#f7f4ec", neutral)
 
-    def test_transparent_background_is_default_and_opaque_fill_remains_optional(self):
+    def test_transparent_export_contains_only_graph_and_opaque_fill_remains_borderless(self):
         cfg = _cfg()
         transparent = render_face_svg(
             "gaussian_curves", True, 0, cfg,
@@ -91,9 +91,10 @@ class DiceRenderTests(unittest.TestCase):
             transparent_background=False,
         )
 
-        self.assertIn('fill="none"', transparent)
+        self.assertNotIn('<rect x="5" y="5" width="246"', transparent)
         self.assertNotIn("#abcdef", transparent)
-        self.assertIn('fill="#abcdef"', opaque)
+        self.assertIn('<rect width="256" height="256" fill="#abcdef"/>', opaque)
+        self.assertNotIn('stroke="#426183" stroke-width="4"', opaque)
 
     def test_repeated_face_choices_get_distinct_svg_reference_namespaces(self):
         cfg = _cfg()
@@ -109,7 +110,7 @@ class DiceRenderTests(unittest.TestCase):
     def test_six_face_zip_contains_standalone_svgs_and_manifest(self):
         cfg = _cfg()
         specs, faces = render_faces(cfg)
-        self.assertTrue(all('rx="30" fill="none"' in svg for svg in faces))
+        self.assertTrue(all('<rect x="5" y="5" width="246"' not in svg for svg in faces))
         archive_bytes = build_faces_zip(cfg, specs, faces)
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
             names = archive.namelist()

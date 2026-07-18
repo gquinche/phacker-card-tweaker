@@ -185,10 +185,10 @@ face selector can use any registered chart, choose EFFECT or NO EFFECT geometry,
 own deterministic seed. Colored outlines reuse the live Ink Lab blue/gray
 palette; disabling them switches every face to one neutral dark contour.
 Transparent SVG backgrounds are enabled by default for importing the contours
-into Orca as texture artwork: the fill is omitted while the chart and die outline
-remain. Uncheck transparency to bake the independently configurable background
-color instead. Export produces six standalone SVGs and a JSON manifest in one
-ZIP, with individual SVG downloads available too.
+into Orca as texture artwork: both the fill and die frame are omitted, leaving
+only the graph. Uncheck transparency to bake the independently configurable,
+borderless background color instead. Export produces six standalone SVGs and a
+JSON manifest in one ZIP, with individual SVG downloads available too.
 
 ### Chart registry — 11 types, every one tunable
 

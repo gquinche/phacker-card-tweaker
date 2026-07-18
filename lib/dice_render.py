@@ -225,7 +225,11 @@ def render_face_svg(
 ) -> str:
     """Render one self-contained 256×256 SVG die face."""
     background = _safe_hex(background_hex, DICE_DEFAULT_BACKGROUND)
-    background_fill = "none" if transparent_background else background
+    background_element = (
+        ""
+        if transparent_background
+        else f'  <rect width="{DICE_SIZE}" height="{DICE_SIZE}" fill="{background}"/>\n'
+    )
     finding_ink = cfg["palette"]["SIG" if significant else "NULL"]
     ink = _safe_hex(finding_ink, DICE_NEUTRAL_OUTLINE) if colored_outlines else DICE_NEUTRAL_OUTLINE
     glyph = _render_glyph_svg(chart, significant, int(seed), cfg, ink, namespace)
@@ -237,8 +241,7 @@ def render_face_svg(
         f'width="{DICE_SIZE}" height="{DICE_SIZE}" viewBox="0 0 {DICE_SIZE} {DICE_SIZE}" '
         f'role="img" aria-label="{title}">\n'
         f'  <title>{title}</title>\n'
-        f'  <rect x="5" y="5" width="246" height="246" rx="30" '
-        f'fill="{background_fill}" stroke="{ink}" stroke-width="4"/>\n'
+        f'{background_element}'
         f'  {_embedded_svg(glyph, x=28, y=28, size=200)}\n'
         "</svg>"
     )
