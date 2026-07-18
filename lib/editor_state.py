@@ -160,6 +160,8 @@ def load_config_into_widgets(cfg: dict) -> None:
     for export_key in (
         "_last_pdf",
         "_last_pdf_config",
+        "_last_card_pages_pdf",
+        "_last_card_pages_pdf_config",
         "_last_individual_pdf_zip",
         "_last_individual_pdf_zip_config",
     ):

@@ -13,8 +13,9 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
 4. **Export** a YAML config to back up into `gquinche/phacker-game` (branch
    `experiment/simplified-ui` as of 2026-07 — that's where the SVG migration,
    `bake_card_svgs.py`, and `phacker_cards.ipynb` actually live; `trunk` is
-   stale for card art), a six-face SVG ZIP, a print-ready **CMYK** multipage PDF
-   atlas, and an optional ZIP with one front-only or front-and-back PDF per card.
+   stale for card art), a six-face SVG ZIP, and three print-ready **CMYK** PDF
+   modes: a grid atlas, one combined one-card-per-page document, or a ZIP with
+   one front-only or front-and-back PDF file per card.
 
 ## Architecture
 
@@ -134,13 +135,14 @@ SVG. The CMYK step is also not a generic promise that every PDF construct stays
 vector — transparency, gradients, and unusual SVG effects should be checked in
 preflight — so the atlas keeps print CSS restrained.
 
-Print Atlas keeps that multipage document as the default export and also offers
-one PDF per distinct card. The separate-files path renders all card-sized pages
-once, applies the same optional CMYK pass once, then uses `pypdf` to split the
-result into a ZIP without rasterizing it or launching Chromium for every card.
-When matching backs are enabled, each card PDF has its front on page 1 and its
-back on page 2; otherwise each file is front-only. A manifest records the exact
-filenames and page count.
+Print Atlas offers three explicit modes. The default grid atlas places several
+cards per print sheet. The one-card-per-page mode produces one combined document
+with every front on its own page and, when enabled, its matching back immediately
+after it. The separate-files mode takes that same card-sized batch, applies the
+same optional CMYK pass once, then uses `pypdf` to split it into a ZIP without
+rasterizing it or launching Chromium for every card. Each split PDF is front-only
+or has its back on page 2, and a manifest records the exact filenames and page
+count.
 
 `st.components.v2.component` is useful if we later want a browser button to emit
 raw PDF bytes back to Python, but it is not required for the server-side PDF

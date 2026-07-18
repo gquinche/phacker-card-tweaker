@@ -36,10 +36,12 @@ class DiceEditorStateTests(unittest.TestCase):
         })
         self.assertEqual(len(cfg["dice"]["faces"]), 6)
 
-    def test_loading_config_clears_cached_atlas_and_individual_exports(self):
+    def test_loading_config_clears_all_cached_pdf_exports(self):
         for key in (
             "_last_pdf",
             "_last_pdf_config",
+            "_last_card_pages_pdf",
+            "_last_card_pages_pdf_config",
             "_last_individual_pdf_zip",
             "_last_individual_pdf_zip_config",
         ):

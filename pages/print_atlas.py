@@ -22,8 +22,8 @@ from lib.ink_control import PAGE_LABELS, audit_print_html
 
 st.title("🖨️ Print Atlas & PDF")
 st.caption(
-    "The browser-safe HTML is the source of truth. Keep the multipage atlas as the default, "
-    "or export a ZIP with one PDF per card; both paths reuse the same card geometry and CMYK pipeline."
+    "The browser-safe HTML is the source of truth. Choose a grid atlas, one combined PDF with "
+    "one card per page, or a ZIP with one PDF file per card; all three reuse the same geometry and CMYK pipeline."
 )
 
 with st.sidebar:
@@ -87,7 +87,10 @@ with st.sidebar:
     st.checkbox(
         "Include matching SVG card backs",
         key="print_include_back_pages",
-        help="Adds matching back sheets to the atlas and page 2 to every individual card PDF.",
+        help=(
+            "Adds matching back sheets to the atlas, places each back after its front in the "
+            "one-card-per-page PDF, and makes it page 2 of every separate card PDF."
+        ),
     )
     st.checkbox(
         "Block PDF when foreign inks are detected",
@@ -148,7 +151,7 @@ st.iframe(preview_html, height="content")
 # PDFs reuse the exact same card HTML/CSS, only changing the outer page to one
 # card-sized sheet so one batch render can be split efficiently.
 pdf_html = preview_html
-individual_pdf_html = render_individual_card_pages_html(cfg, individual_cards)
+card_pages_pdf_html = render_individual_card_pages_html(cfg, individual_cards)
 ink_audit = audit_print_html(pdf_html, cfg)
 st.subheader("Ink preflight")
 if ink_audit["safe"]:
@@ -179,12 +182,13 @@ st.markdown(f"""
 | Card back | `{cfg['card']['back_texture']}` · neutral P seal · {'included' if p['include_back_pages'] else 'not included'} |
 | Faces | {len(chart_names)} chart types × {seed_count} seeds = {len(individual_cards)} total cards |
 | Atlas PDF | All cards across as many {p['cols']}×{p['rows']} sheets as needed |
+| One-card-per-page PDF | One combined file · {'front then back per card' if p['include_back_pages'] else 'one front per page'} |
 | Separate PDF ZIP | {len(individual_cards)} files · {'front + back' if p['include_back_pages'] else 'front only'} |
 """)
 
 st.subheader("Generate exports")
 current_pdf_config = dump_yaml(cfg)
-atlas_col, individual_col = st.columns(2)
+atlas_col, card_pages_col, individual_col = st.columns(3)
 with atlas_col:
     st.markdown("**Multipage atlas PDF (default)**")
     st.caption("One printable document containing every front and optional matching back sheets.")
@@ -212,6 +216,34 @@ with atlas_col:
             except Exception as exc:  # noqa: BLE001 — surface the real error to the user
                 st.error(f"PDF generation failed: {exc}")
 
+with card_pages_col:
+    st.markdown("**One card per page PDF**")
+    st.caption("One combined document; each optional matching back follows its card front.")
+    if st.button("🗎 Generate card-pages PDF", width="stretch"):
+        if p.get("strict_ink_check", True) and not ink_audit["safe"]:
+            st.error("PDF blocked: resolve the Ink preflight warnings or disable strict checking.")
+        else:
+            try:
+                with st.spinner(f"Rendering {len(individual_cards)} cards one per page…"):
+                    st.session_state["_last_card_pages_pdf"] = build_pdf_bytes(
+                        card_pages_pdf_html,
+                        renderer=p.get("pdf_renderer", "auto"),
+                        use_cmyk=p.get("use_cmyk", True),
+                        profile_path=p.get("cmyk_profile_path") or None,
+                    )
+                    st.session_state["_last_card_pages_pdf_config"] = current_pdf_config
+                pdf_kb = len(st.session_state["_last_card_pages_pdf"]) // 1024
+                st.success(f"Card-pages PDF ready — {pdf_kb} KB")
+            except PdfRendererUnavailable as exc:
+                st.error(
+                    f"The selected PDF renderer is unavailable: {exc}. "
+                    "Choose Auto or WeasyPrint, or install Chromium/Playwright."
+                )
+            except PdfPipelineError as exc:
+                st.error(f"PDF/CMYK processing failed: {exc}")
+            except Exception as exc:  # noqa: BLE001 — surface the real error to the user
+                st.error(f"PDF generation failed: {exc}")
+
 with individual_col:
     st.markdown("**One PDF per card (.zip)**")
     st.caption("One batch render, split into named files; matching backs become page 2 when enabled.")
@@ -222,7 +254,7 @@ with individual_col:
             try:
                 with st.spinner(f"Rendering and splitting {len(individual_cards)} card PDFs…"):
                     st.session_state["_last_individual_pdf_zip"] = build_individual_pdf_zip(
-                        individual_pdf_html,
+                        card_pages_pdf_html,
                         individual_card_ids,
                         include_back_pages=p.get("include_back_pages", True),
                         renderer=p.get("pdf_renderer", "auto"),
@@ -242,7 +274,7 @@ with individual_col:
             except Exception as exc:  # noqa: BLE001 — surface the real error to the user
                 st.error(f"Individual PDF generation failed: {exc}")
 
-atlas_download_col, individual_download_col = st.columns(2)
+atlas_download_col, card_pages_download_col, individual_download_col = st.columns(3)
 with atlas_download_col:
     if "_last_pdf" in st.session_state:
         if st.session_state.get("_last_pdf_config") == current_pdf_config:
@@ -255,6 +287,18 @@ with atlas_download_col:
             )
         else:
             st.info("Atlas settings changed. Generate the PDF again before downloading.")
+with card_pages_download_col:
+    if "_last_card_pages_pdf" in st.session_state:
+        if st.session_state.get("_last_card_pages_pdf_config") == current_pdf_config:
+            st.download_button(
+                "📥 Download one-card-per-page PDF",
+                st.session_state["_last_card_pages_pdf"],
+                "phacker-one-card-per-page.pdf",
+                "application/pdf",
+                width="stretch",
+            )
+        else:
+            st.info("Card-page settings changed. Generate the PDF again before downloading.")
 with individual_download_col:
     if "_last_individual_pdf_zip" in st.session_state:
         if st.session_state.get("_last_individual_pdf_zip_config") == current_pdf_config:
