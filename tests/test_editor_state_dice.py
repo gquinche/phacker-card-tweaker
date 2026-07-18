@@ -22,6 +22,7 @@ class DiceEditorStateTests(unittest.TestCase):
 
     def test_six_face_widgets_round_trip_into_nested_config(self):
         fake_streamlit.session_state["dice_background"] = "#112233"
+        fake_streamlit.session_state["dice_transparent_background"] = False
         fake_streamlit.session_state["dice_colored_outlines"] = False
         fake_streamlit.session_state["dice_face_1_chart"] = "forest_plot"
         fake_streamlit.session_state["dice_face_1_significant"] = False
@@ -30,6 +31,7 @@ class DiceEditorStateTests(unittest.TestCase):
         cfg = current_config()
 
         self.assertEqual(cfg["dice"]["background"], "#112233")
+        self.assertFalse(cfg["dice"]["transparent_background"])
         self.assertFalse(cfg["dice"]["colored_outlines"])
         self.assertEqual(cfg["dice"]["faces"][0], {
             "chart": "forest_plot", "significant": False, "seed": 42,
@@ -52,6 +54,7 @@ class DiceEditorStateTests(unittest.TestCase):
         self.assertFalse(any(key.startswith("_last_") for key in fake_streamlit.session_state))
 
     def test_fallback_and_renderer_defaults_stay_in_sync(self):
+        self.assertTrue(FALLBACK_CONFIG["dice"]["transparent_background"])
         self.assertEqual(FALLBACK_CONFIG["dice"]["faces"], [
             dict(spec) for spec in DEFAULT_FACE_SPECS
         ])
@@ -60,11 +63,13 @@ class DiceEditorStateTests(unittest.TestCase):
         cfg = _merge_defaults({
             "dice": {
                 "background": "not-a-color",
+                "transparent_background": "yes",
                 "colored_outlines": "yes",
                 "faces": [{"chart": "box_plot", "significant": False, "seed": 42}],
             },
         })
         self.assertEqual(cfg["dice"]["background"], "#f7f4ec")
+        self.assertTrue(cfg["dice"]["transparent_background"])
         self.assertTrue(cfg["dice"]["colored_outlines"])
         self.assertEqual(cfg["dice"]["faces"][0], {
             "chart": "box_plot", "significant": False, "seed": 42,

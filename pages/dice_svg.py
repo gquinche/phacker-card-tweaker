@@ -24,10 +24,19 @@ def _restore_recommended_faces() -> None:
 
 with st.sidebar:
     st.subheader("Dice appearance")
+    transparent_background = st.checkbox(
+        "Transparent SVG background",
+        key="dice_transparent_background",
+        help=(
+            "Enabled by default: exports no background fill, ready to import into Orca "
+            "and convert into a texture. The chart contours and die outline remain."
+        ),
+    )
     st.color_picker(
         "Die background",
         key="dice_background",
-        help="Baked into every standalone SVG face.",
+        disabled=transparent_background,
+        help="Used only when Transparent SVG background is unchecked.",
     )
     st.checkbox(
         "Use blue / gray outlines",
@@ -37,7 +46,9 @@ with st.sidebar:
             "Off: every face uses one neutral dark contour."
         ),
     )
-    st.caption("Blue and gray follow the live Ink Lab palette; the die background is independent.")
+    st.caption(
+        "Blue and gray follow the live Ink Lab palette. Background color is used only when transparency is off."
+    )
     st.button("Restore recommended six", on_click=_restore_recommended_faces, width="stretch")
 
 st.subheader("Choose the six faces")
@@ -93,7 +104,7 @@ st.download_button(
     "phacker-dice-faces.zip",
     "application/zip",
     width="stretch",
-    help="Includes six standalone SVGs plus manifest.json with chart, finding, seed, and color settings.",
+    help="Includes six standalone SVGs plus manifest.json with chart, finding, seed, color, and transparency settings.",
 )
 
 with st.expander("Download individual SVG faces"):

@@ -35,6 +35,7 @@ FALLBACK_CONFIG: dict = {
     "precolor": True,
     "dice": {
         "background": "#f7f4ec",
+        "transparent_background": True,
         "colored_outlines": True,
         "faces": [
             {"chart": "gaussian_curves", "significant": True, "seed": 0},
@@ -114,6 +115,11 @@ def _normalize_dice_config(cfg: dict) -> None:
     if not isinstance(background, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", background) is None:
         background = defaults["background"]
     dice["background"] = background.lower()
+
+    transparent = dice.get("transparent_background", defaults["transparent_background"])
+    dice["transparent_background"] = (
+        transparent if isinstance(transparent, bool) else defaults["transparent_background"]
+    )
 
     colored = dice.get("colored_outlines", defaults["colored_outlines"])
     dice["colored_outlines"] = colored if isinstance(colored, bool) else defaults["colored_outlines"]

@@ -220,10 +220,12 @@ def render_face_svg(
     *,
     background_hex: str,
     colored_outlines: bool,
+    transparent_background: bool = True,
     namespace: str = "standalone",
 ) -> str:
     """Render one self-contained 256×256 SVG die face."""
     background = _safe_hex(background_hex, DICE_DEFAULT_BACKGROUND)
+    background_fill = "none" if transparent_background else background
     finding_ink = cfg["palette"]["SIG" if significant else "NULL"]
     ink = _safe_hex(finding_ink, DICE_NEUTRAL_OUTLINE) if colored_outlines else DICE_NEUTRAL_OUTLINE
     glyph = _render_glyph_svg(chart, significant, int(seed), cfg, ink, namespace)
@@ -236,7 +238,7 @@ def render_face_svg(
         f'role="img" aria-label="{title}">\n'
         f'  <title>{title}</title>\n'
         f'  <rect x="5" y="5" width="246" height="246" rx="30" '
-        f'fill="{background}" stroke="{ink}" stroke-width="4"/>\n'
+        f'fill="{background_fill}" stroke="{ink}" stroke-width="4"/>\n'
         f'  {_embedded_svg(glyph, x=28, y=28, size=200)}\n'
         "</svg>"
     )
@@ -246,6 +248,7 @@ def render_faces(cfg: dict) -> tuple[list[dict], list[str]]:
     specs = face_specs_from_config(cfg)
     dice_cfg = cfg.get("dice", {})
     background = dice_cfg.get("background", DICE_DEFAULT_BACKGROUND)
+    transparent = bool(dice_cfg.get("transparent_background", True))
     colored = bool(dice_cfg.get("colored_outlines", True))
     faces = [
         render_face_svg(
@@ -255,6 +258,7 @@ def render_faces(cfg: dict) -> tuple[list[dict], list[str]]:
             cfg,
             background_hex=background,
             colored_outlines=colored,
+            transparent_background=transparent,
             namespace=f"face-{index}",
         )
         for index, spec in enumerate(specs, start=1)
@@ -302,8 +306,9 @@ def build_faces_zip(cfg: dict, specs: list[dict], faces: list[str]) -> bytes:
     buffer = io.BytesIO()
     dice_cfg = cfg.get("dice", {})
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "background": _safe_hex(dice_cfg.get("background"), DICE_DEFAULT_BACKGROUND),
+        "transparent_background": bool(dice_cfg.get("transparent_background", True)),
         "colored_outlines": bool(dice_cfg.get("colored_outlines", True)),
         "faces": specs,
     }

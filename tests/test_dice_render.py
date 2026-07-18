@@ -26,6 +26,7 @@ def _cfg():
         "chart_params": default_chart_params(),
         "dice": {
             "background": "#f7f4ec",
+            "transparent_background": True,
             "colored_outlines": True,
             "faces": copy.deepcopy(list(DEFAULT_FACE_SPECS)),
         },
@@ -65,16 +66,34 @@ class DiceRenderTests(unittest.TestCase):
         colored = render_face_svg(
             "gaussian_curves", True, 0, cfg,
             background_hex="#f7f4ec", colored_outlines=True,
+            transparent_background=False,
         )
         neutral = render_face_svg(
             "gaussian_curves", True, 0, cfg,
             background_hex="#f7f4ec", colored_outlines=False,
+            transparent_background=False,
         )
         self.assertIn("#426183", colored)
         self.assertIn(DICE_NEUTRAL_OUTLINE, neutral)
         self.assertNotIn("#426183", neutral)
         self.assertIn("#f7f4ec", colored)
         self.assertIn("#f7f4ec", neutral)
+
+    def test_transparent_background_is_default_and_opaque_fill_remains_optional(self):
+        cfg = _cfg()
+        transparent = render_face_svg(
+            "gaussian_curves", True, 0, cfg,
+            background_hex="#abcdef", colored_outlines=True,
+        )
+        opaque = render_face_svg(
+            "gaussian_curves", True, 0, cfg,
+            background_hex="#abcdef", colored_outlines=True,
+            transparent_background=False,
+        )
+
+        self.assertIn('fill="none"', transparent)
+        self.assertNotIn("#abcdef", transparent)
+        self.assertIn('fill="#abcdef"', opaque)
 
     def test_repeated_face_choices_get_distinct_svg_reference_namespaces(self):
         cfg = _cfg()
@@ -90,14 +109,16 @@ class DiceRenderTests(unittest.TestCase):
     def test_six_face_zip_contains_standalone_svgs_and_manifest(self):
         cfg = _cfg()
         specs, faces = render_faces(cfg)
+        self.assertTrue(all('rx="30" fill="none"' in svg for svg in faces))
         archive_bytes = build_faces_zip(cfg, specs, faces)
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
             names = archive.namelist()
             self.assertEqual(len([name for name in names if name.endswith(".svg")]), 6)
             self.assertIn("manifest.json", names)
             manifest = json.loads(archive.read("manifest.json"))
-            self.assertEqual(manifest["schema_version"], 1)
+            self.assertEqual(manifest["schema_version"], 2)
             self.assertEqual(manifest["background"], "#f7f4ec")
+            self.assertTrue(manifest["transparent_background"])
             self.assertTrue(manifest["colored_outlines"])
             self.assertEqual(len(manifest["faces"]), 6)
 

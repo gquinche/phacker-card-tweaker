@@ -37,6 +37,7 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "hatch_box_treatment": ("hatch", "box", "1"),
     "hatch_gauss": ("hatch", "gauss"),
     "dice_background": ("dice", "background"),
+    "dice_transparent_background": ("dice", "transparent_background"),
     "dice_colored_outlines": ("dice", "colored_outlines"),
     "dice_face_1_chart": ("dice", "faces", "0", "chart"),
     "dice_face_1_significant": ("dice", "faces", "0", "significant"),

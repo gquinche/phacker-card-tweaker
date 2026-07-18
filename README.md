@@ -183,9 +183,12 @@ The recommended six use distinct silhouettes: Gaussian curves, box-and-whisker,
 bar, step curves, forest, and parallel-trends. They are only defaults: every
 face selector can use any registered chart, choose EFFECT or NO EFFECT geometry, and set its
 own deterministic seed. Colored outlines reuse the live Ink Lab blue/gray
-palette; disabling them switches every face to one neutral dark contour. The die
-background is independently configurable. Export produces six standalone SVGs
-and a JSON manifest in one ZIP, with individual SVG downloads available too.
+palette; disabling them switches every face to one neutral dark contour.
+Transparent SVG backgrounds are enabled by default for importing the contours
+into Orca as texture artwork: the fill is omitted while the chart and die outline
+remain. Uncheck transparency to bake the independently configurable background
+color instead. Export produces six standalone SVGs and a JSON manifest in one
+ZIP, with individual SVG downloads available too.
 
 ### Chart registry — 11 types, every one tunable
 

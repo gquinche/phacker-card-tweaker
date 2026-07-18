@@ -44,6 +44,7 @@ precolor: true      # bake the finding hex directly into exported SVGs (the
 # outlines are enabled; switching color off uses one neutral contour ink.
 dice:
   background: "#f7f4ec"
+  transparent_background: true  # no fill by default, ready for Orca texture import
   colored_outlines: true
   faces:
     - {chart: gaussian_curves, significant: true, seed: 0}
