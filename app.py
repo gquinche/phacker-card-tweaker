@@ -1,8 +1,8 @@
 """P-Hacker Card Tweaker — entry point.
 
 Single pipeline: tune chart + card params, preview the REAL card look
-(same HTML/CSS as the print PDF), then export (1) a YAML config to back up
-into phacker-game/tools/card-art/ and (2) a print-ready CMYK PDF atlas.
+(same HTML/CSS as the print PDF), reduce the chart family into six minimal
+die-face SVGs, then export YAML, SVG, and print-ready CMYK PDF assets.
 
 Uses Streamlit's multipage `st.navigation`/`st.Page`. Normal keyed widgets own
 the live values; render and export collect those values into a config snapshot.
@@ -38,7 +38,7 @@ def _import_config() -> None:
 
 with st.sidebar:
     st.title("🃏 P-Hacker Card Tweaker")
-    st.caption("Tune → preview the real card look → export YAML + a print-ready CMYK PDF.")
+    st.caption("Tune charts → preview cards → export dice SVGs, YAML, and print-ready CMYK PDF.")
 
     st.file_uploader(
         "Import config YAML", type=["yaml", "yml"], key="cfg_upload", on_change=_import_config,
@@ -73,6 +73,7 @@ with st.sidebar:
 
 pages = [
     st.Page("pages/chart_lab.py", title="Chart Lab", icon="📊", default=True),
+    st.Page("pages/dice_svg.py", title="Dice SVG", icon="🎲"),
     st.Page("pages/ink_lab.py", title="Ink Lab", icon="🎨"),
     st.Page("pages/card_preview.py", title="Card Preview", icon="🃏"),
     st.Page("pages/print_atlas.py", title="Print Atlas & PDF", icon="🖨️"),

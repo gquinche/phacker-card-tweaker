@@ -7,11 +7,12 @@ copying values across is a straight lift, not a translation exercise.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 
-from .chart_params import default_chart_params
+from .chart_params import CHART_PARAM_SCHEMAS, default_chart_params
 
 DEFAULTS_PATH = Path(__file__).resolve().parent.parent / "config_defaults.yaml"
 
@@ -32,6 +33,18 @@ FALLBACK_CONFIG: dict = {
     "seeds_per_type": 2,
     "band_pct": 20,
     "precolor": True,
+    "dice": {
+        "background": "#f7f4ec",
+        "colored_outlines": True,
+        "faces": [
+            {"chart": "gaussian_curves", "significant": True, "seed": 0},
+            {"chart": "box_plot", "significant": False, "seed": 1},
+            {"chart": "bar_chart", "significant": True, "seed": 0},
+            {"chart": "km_curve", "significant": False, "seed": 1},
+            {"chart": "forest_plot", "significant": True, "seed": 0},
+            {"chart": "did_parallel_trends", "significant": True, "seed": 0},
+        ],
+    },
     # Per-chart-type tunable params (sample sizes, effect-size ranges, noise
     # levels) — one sub-dict per chart in lib/chart_params.CHART_PARAM_SCHEMAS.
     # This replaces the old top-level `syn` key, which only covered
@@ -91,11 +104,47 @@ def _deep_copy(d):
     return copy.deepcopy(d)
 
 
+def _normalize_dice_config(cfg: dict) -> None:
+    """Keep imported/partial YAML safe for six fixed Streamlit face widgets."""
+    defaults = FALLBACK_CONFIG["dice"]
+    raw = cfg.get("dice")
+    dice = _deep_copy(raw) if isinstance(raw, dict) else {}
+
+    background = dice.get("background", defaults["background"])
+    if not isinstance(background, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", background) is None:
+        background = defaults["background"]
+    dice["background"] = background.lower()
+
+    colored = dice.get("colored_outlines", defaults["colored_outlines"])
+    dice["colored_outlines"] = colored if isinstance(colored, bool) else defaults["colored_outlines"]
+
+    raw_faces = dice.get("faces")
+    if not isinstance(raw_faces, list):
+        raw_faces = []
+    faces = []
+    for index, default in enumerate(defaults["faces"]):
+        face = raw_faces[index] if index < len(raw_faces) and isinstance(raw_faces[index], dict) else {}
+        chart = face.get("chart", default["chart"])
+        if chart not in CHART_PARAM_SCHEMAS:
+            chart = default["chart"]
+        significant = face.get("significant", default["significant"])
+        if not isinstance(significant, bool):
+            significant = default["significant"]
+        try:
+            seed = max(0, min(9999, int(face.get("seed", default["seed"]))))
+        except (TypeError, ValueError):
+            seed = default["seed"]
+        faces.append({"chart": chart, "significant": significant, "seed": seed})
+    dice["faces"] = faces
+    cfg["dice"] = dice
+
+
 def _merge_defaults(loaded: dict) -> dict:
     """Fill in any keys missing from an older/partial YAML with fallback
     values, so opening a config saved before a schema addition doesn't KeyError."""
     merged = _deep_copy(FALLBACK_CONFIG)
     _deep_update(merged, loaded)
+    _normalize_dice_config(merged)
     return merged
 
 

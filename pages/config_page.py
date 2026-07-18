@@ -11,8 +11,8 @@ st.title("⚙️ Config")
 cfg = current_config()
 
 st.markdown(
-    "This YAML is the single source of tunable values for both the card look and the print "
-    "atlas — chart hatch/params, CMYK ink, card-composite ratios, and page/grid layout. "
+    "This YAML is the single source of tunable values for the card look, dice SVGs, and print "
+    "atlas — chart hatch/params, six die faces, CMYK ink, card-composite ratios, and page/grid layout. "
     "Export it (sidebar, on every page) and back it up into "
     "`gquinche/phacker-game/tools/card-art/` — the notebook's *TWEAK HERE* cell "
     "(`PALETTE`, `fc.SYN`, `fc.HATCH`) reads the same value names, so it's a direct copy, "
@@ -45,6 +45,8 @@ st.markdown(
     "`.print-card--significant/--null .print-card__plot` wash alpha).\n"
     "- **Card-back texture** → `public/patterns/` + `SealedCardBack.tsx` on "
     "`experiment/simplified-ui`; this app embeds local copies for offline PDF output.\n"
+    "- **Dice faces / background / color toggle** → the standalone SVG ZIP from Dice SVG; "
+    "these settings stay in the shared YAML so the six-face set is reproducible.\n"
     "- **Print card size / bleed / grid** → whatever you hand to the litografía "
     "alongside the exported PDF — this tool doesn't write into the game repo for you, "
     "by design, since these are print-shop-facing, not game-code values."
