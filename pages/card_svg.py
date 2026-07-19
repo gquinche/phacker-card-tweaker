@@ -52,7 +52,7 @@ with st.sidebar:
         "Charts",
         chart_names,
         default=chart_names,
-        format_func=cg.chart_label,
+        format_func=card_svg.chart_label,
         key="card_svg_charts",
         help="Each selected chart exports one card per enabled difference state.",
     )
