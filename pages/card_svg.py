@@ -10,7 +10,8 @@ from lib.editor_state import current_config
 st.title("🖼️ Card SVG")
 st.caption(
     "Export complete card fronts, not just chart glyphs. Every SVG contains a visible paper border "
-    "and infill, while the chart state is recorded as the boolean `difference` field."
+    "and infill, while the chart state is recorded as the boolean `difference` field. Use the "
+    "negative-space checkbox to fill around each chart and redraw its graphic in paper color."
 )
 
 chart_names = cg.all_chart_names()
@@ -47,6 +48,15 @@ with st.sidebar:
         key="card_svg_include_no_difference",
         help="Exports cards with difference=false and the gray finding ink.",
     )
+    negative_space = st.checkbox(
+        "Fill around graphics (negative space)",
+        value=False,
+        key="card_svg_negative_space",
+        help=(
+            "Fills the chart area with the finding ink and redraws the chart in paper color, "
+            "so the graphic reads as negative space inside the card."
+        ),
+    )
 
     selected_charts = st.multiselect(
         "Charts",
@@ -74,7 +84,12 @@ if not differences:
     st.stop()
 
 cfg = current_config()
-specs = card_svg.card_specs(selected_charts, int(seed), differences)
+specs = card_svg.card_specs(
+    selected_charts,
+    int(seed),
+    differences,
+    negative_space=negative_space,
+)
 with st.spinner("Rendering standalone card SVGs…"):
     svgs = [
         card_svg.render_card_svg(
@@ -84,12 +99,16 @@ with st.spinner("Rendering standalone card SVGs…"):
             cfg,
             size=size,
             card_id=f"{index:02d}-{spec['chart']}",
+            negative_space=bool(spec["negative_space"]),
         )
         for index, spec in enumerate(specs, start=1)
     ]
 
 st.subheader(f"{len(svgs)} standalone card SVGs")
-st.info("Every export includes a paper infill and visible border. The manifest and SVG metadata use difference=true/false.")
+st.info(
+    "Every export includes a paper infill and visible border. The manifest and SVG metadata use "
+    "difference=true/false. Negative-space exports fill around the chart and redraw its graphic in paper color."
+)
 st.iframe(card_svg.render_preview_html(specs, svgs), height=820)
 
 zip_bytes = card_svg.build_cards_zip(specs, svgs, size=size)
@@ -99,7 +118,7 @@ st.download_button(
     f"phacker-card-svgs-{size}.zip",
     "application/zip",
     width="stretch",
-    help="Includes every selected card SVG plus manifest.json with chart, seed, and boolean difference fields.",
+    help="Includes every selected card SVG plus manifest.json with chart, seed, boolean difference, and negative_space fields.",
 )
 
 with st.expander("Download individual Card SVGs"):

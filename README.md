@@ -203,6 +203,13 @@ produces the gray NO DIFFERENCE card. Each ZIP includes the SVGs plus a manifest
 that records the same boolean field, chart, seed, size, border, and infill
 contract. The page also exposes individual SVG downloads for quick inspection.
 
+The Card SVG sidebar includes a `Fill around graphics (negative space)` checkbox.
+When enabled, each chart area is filled with its finding ink and the chart is
+redrawn in paper color, so the graphic reads as negative space without removing
+the card border or paper infill. The SVG root and manifest record this choice as
+the boolean `negative_space` field, and negative-space filenames receive a
+`-negative-space` suffix while standard filenames remain unchanged.
+
 ### Chart registry — 11 types, every one tunable
 
 The real repo's `fake_charts_cardart.py` dropped `km_curve` (Kaplan-Meier)

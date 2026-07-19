@@ -4,7 +4,8 @@ This module keeps the card SVG export separate from the HTML/PDF renderer. The
 export is intentionally explicit: every SVG contains a paper infill and a
 visible outer border, while the chart state is carried as a boolean
 ``difference`` value instead of leaking the older ``significant`` name into the
-new export format.
+new export format. An optional ``negative_space`` flag fills the area around the
+chart with the finding ink and redraws the chart in paper color.
 """
 
 from __future__ import annotations
@@ -96,8 +97,12 @@ def card_specs(
     charts: Iterable[str],
     seed: int,
     differences: Iterable[bool],
+    *,
+    negative_space: bool = False,
 ) -> list[dict[str, object]]:
-    """Build validated export specs with a boolean ``difference`` field."""
+    """Build validated export specs with boolean difference and negative-space fields."""
+    if not isinstance(negative_space, bool):
+        raise TypeError("card SVG negative_space must be a boolean")
     selected_charts = [chart for chart in charts if chart in cg.GENERATOR_NAMES]
     selected_states: list[bool] = []
     for difference in differences:
@@ -107,7 +112,12 @@ def card_specs(
             selected_states.append(difference)
 
     return [
-        {"chart": chart, "difference": difference, "seed": int(seed)}
+        {
+            "chart": chart,
+            "difference": difference,
+            "negative_space": negative_space,
+            "seed": int(seed),
+        }
         for chart in selected_charts
         for difference in selected_states
     ]
@@ -121,18 +131,21 @@ def render_card_svg(
     *,
     size: str = "print",
     card_id: str | None = None,
+    negative_space: bool = False,
 ) -> str:
     """Render one self-contained full card-front SVG.
 
-    ``difference`` is intentionally a strict boolean at this boundary. Internally
-    it maps to the existing chart generator's significant/no-effect switch, but
-    exported SVG metadata and the ZIP manifest use the clearer ``difference``
-    field requested by the Card SVG page.
+    ``difference`` and ``negative_space`` are strict booleans at this boundary.
+    ``negative_space`` fills the space around the chart with the finding ink while
+    the chart itself and the card border remain visible in the paper color.
+    Exported SVG metadata and the ZIP manifest carry both flags.
     """
     if chart not in cg.GENERATOR_NAMES:
         raise ValueError(f"Unknown chart type: {chart}")
     if not isinstance(difference, bool):
         raise TypeError("difference must be a boolean")
+    if not isinstance(negative_space, bool):
+        raise TypeError("negative_space must be a boolean")
 
     info = _size_info(size)
     view_width = float(info["view_width"])
@@ -164,7 +177,8 @@ def render_card_svg(
     else:
         corner_radius = min(12.0, view_width * 0.05)
 
-    chart_svg = cg.render_svg_bare(chart, difference, int(seed), cfg, ink_hex)
+    chart_ink_hex = paper_hex if negative_space else ink_hex
+    chart_svg = cg.render_svg_bare(chart, difference, int(seed), cfg, chart_ink_hex)
     chart_markup = _embedded_chart(
         chart_svg,
         x=chart_x,
@@ -174,6 +188,13 @@ def render_card_svg(
     )
 
     chart_opacity = max(0.0, min(1.0, float(card_cfg.get("chart_opacity", 0.6))))
+    negative_space_markup = (
+        f'<rect id="negative-space-fill" x="{chart_x:.2f}" y="{chart_y:.2f}" '
+        f'width="{chart_width:.2f}" height="{chart_height:.2f}" fill="{ink_hex}"/>'
+        if negative_space
+        else ""
+    )
+    graphic_opacity = 1.0 if negative_space else chart_opacity
     stamp_markup = ""
     if card_cfg.get("show_stamp", True):
         stamp_width = max(20.0, view_width * 0.105)
@@ -221,23 +242,32 @@ def render_card_svg(
     )
 
     metadata = json.dumps(
-        {"chart": chart, "difference": difference, "seed": int(seed), "card_id": identity},
+        {
+            "chart": chart,
+            "difference": difference,
+            "negative_space": negative_space,
+            "seed": int(seed),
+            "card_id": identity,
+        },
         separators=(",", ":"),
     )
     title = escape(f"{label} card — {chart_label(chart)}")
+    if negative_space:
+        title = f"Negative-space {title}"
     outer_x = border_width / 2
     outer_y = border_width / 2
     outer_width = view_width - border_width
     outer_height = view_height - border_width
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{info["width_attr"]}" height="{info["height_attr"]}" viewBox="0 0 {view_width:g} {view_height:g}" role="img" aria-label="{title}" data-difference="{str(difference).lower()}">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{info["width_attr"]}" height="{info["height_attr"]}" viewBox="0 0 {view_width:g} {view_height:g}" role="img" aria-label="{title}" data-difference="{str(difference).lower()}" data-negative-space="{str(negative_space).lower()}" data-negative-space-meaning="fill-around-graphic">
   <title>{title}</title>
   <metadata>{metadata}</metadata>
   <rect id="card-infill" x="{outer_x:.2f}" y="{outer_y:.2f}" width="{outer_width:.2f}" height="{outer_height:.2f}" rx="{corner_radius:.2f}" fill="{paper_hex}"/>
   {crease_markup}
   <rect id="difference-band" x="0" y="0" width="{view_width:.2f}" height="{band_height:.2f}" fill="{ink_hex}"/>
   <text x="{view_width / 2:.2f}" y="{band_height * 0.60:.2f}" text-anchor="middle" font-family="Georgia, serif" font-size="{max(11.0, view_width * 0.052):.2f}" font-weight="700" letter-spacing="3" fill="{paper_hex}">{label}</text>
-  <g id="card-graphic" opacity="{chart_opacity:.3f}">{chart_markup}</g>
+  {negative_space_markup}
+  <g id="card-graphic" opacity="{graphic_opacity:.3f}">{chart_markup}</g>
   {footer_markup}
   {stamp_markup}
   {id_markup}
@@ -248,7 +278,8 @@ def render_card_svg(
 def card_filename(index: int, spec: dict[str, object]) -> str:
     chart = str(spec["chart"]).replace("_", "-")
     state = "difference" if bool(spec["difference"]) else "no-difference"
-    return f"card-{index:02d}-{chart}-{state}.svg"
+    variant = "-negative-space" if bool(spec.get("negative_space", False)) else ""
+    return f"card-{index:02d}-{chart}-{state}{variant}.svg"
 
 
 def render_preview_html(specs: Sequence[dict[str, object]], svgs: Sequence[str]) -> str:
@@ -257,9 +288,11 @@ def render_preview_html(specs: Sequence[dict[str, object]], svgs: Sequence[str])
     for index, (spec, svg) in enumerate(zip(specs, svgs), start=1):
         chart = escape(chart_label(str(spec["chart"])))
         state = escape(difference_label(bool(spec["difference"])))
+        negative_space = bool(spec.get("negative_space", False))
+        variant = "NEGATIVE SPACE" if negative_space else "STANDARD"
         cards.append(
             f'<figure><div class="card-svg">{svg}</div><figcaption>'
-            f'<strong>{index:02d}</strong><span>{chart}</span><small>{state} · difference={str(bool(spec["difference"])).lower()}</small>'
+            f'<strong>{index:02d}</strong><span>{chart}</span><small>{state} · difference={str(bool(spec["difference"])).lower()} · {variant}</small>'
             "</figcaption></figure>"
         )
     return f'''<!doctype html>
@@ -293,11 +326,14 @@ def build_cards_zip(
         "border": True,
         "infill": True,
         "difference_field": "difference",
+        "negative_space_field": "negative_space",
+        "contains_negative_space": any(bool(spec.get("negative_space", False)) for spec in specs),
         "cards": [
             {
                 "filename": card_filename(index, spec),
                 "chart": spec["chart"],
                 "difference": bool(spec["difference"]),
+                "negative_space": bool(spec.get("negative_space", False)),
                 "seed": int(spec["seed"]),
             }
             for index, spec in enumerate(specs, start=1)
