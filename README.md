@@ -26,6 +26,7 @@ pages/
   dice_svg.py           six configurable minimal SVG die faces + preview/downloads
   ink_lab.py            per-page CMYK recipes, C/K plane, policies, and histogram
   card_preview.py        full gallery, every chart type × both findings, at real card size
+  card_svg.py            standalone bordered/infilled card-front SVGs with boolean difference metadata
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (browser-first)
   config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
 lib/
@@ -35,6 +36,7 @@ lib/
   chart_params.py         per-chart tunable-param schemas (every chart, not just
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
   dice_render.py          contour-only chart reduction, die-face SVGs, preview, and ZIP packaging
+  card_svg.py             complete bordered/infilled card-front SVGs and boolean difference manifest
   card_render.py          THE single card/atlas HTML+CSS template shared by preview and PDF
   card_back_render.py     simplified-ui card backs from real SVG motifs, one shared layout
   pdf_pipeline.py         browser-first PDF + Ghostscript CMYK + vector-safe per-card ZIP splitting
@@ -189,6 +191,17 @@ into Orca as texture artwork: both the fill and die frame are omitted, leaving
 only the graph. Uncheck transparency to bake the independently configurable,
 borderless background color instead. Export produces six standalone SVGs and a
 JSON manifest in one ZIP, with individual SVG downloads available too.
+
+### Card SVG page
+
+Card SVG is the full-card counterpart to Dice SVG. It renders one standalone
+front for every selected chart and enabled finding state, preserving a visible
+paper border and paper infill in the SVG itself rather than relying on the HTML
+preview shell. The export-facing state is named `difference` and is always a
+boolean: `true` produces the configured blue DIFFERENCE card, while `false`
+produces the gray NO DIFFERENCE card. Each ZIP includes the SVGs plus a manifest
+that records the same boolean field, chart, seed, size, border, and infill
+contract. The page also exposes individual SVG downloads for quick inspection.
 
 ### Chart registry — 11 types, every one tunable
 
