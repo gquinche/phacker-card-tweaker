@@ -37,6 +37,7 @@ FALLBACK_CONFIG: dict = {
         "background": "#f7f4ec",
         "transparent_background": True,
         "colored_outlines": True,
+        "negative_space": False,
         "faces": [
             {"chart": "gaussian_curves", "significant": True, "seed": 0},
             {"chart": "box_plot", "significant": False, "seed": 1},
@@ -123,6 +124,9 @@ def _normalize_dice_config(cfg: dict) -> None:
 
     colored = dice.get("colored_outlines", defaults["colored_outlines"])
     dice["colored_outlines"] = colored if isinstance(colored, bool) else defaults["colored_outlines"]
+
+    negative_space = dice.get("negative_space", defaults["negative_space"])
+    dice["negative_space"] = negative_space if isinstance(negative_space, bool) else defaults["negative_space"]
 
     raw_faces = dice.get("faces")
     if not isinstance(raw_faces, list):

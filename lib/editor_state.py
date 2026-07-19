@@ -39,6 +39,7 @@ WIDGET_PATHS: dict[str, tuple[str, ...]] = {
     "dice_background": ("dice", "background"),
     "dice_transparent_background": ("dice", "transparent_background"),
     "dice_colored_outlines": ("dice", "colored_outlines"),
+    "dice_negative_space": ("dice", "negative_space"),
     "dice_face_1_chart": ("dice", "faces", "0", "chart"),
     "dice_face_1_significant": ("dice", "faces", "0", "significant"),
     "dice_face_1_seed": ("dice", "faces", "0", "seed"),

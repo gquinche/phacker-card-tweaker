@@ -11,7 +11,8 @@ st.title("🎲 Dice SVG")
 st.caption(
     "Build six minimal chart glyphs that read from across the table. The geometry comes from "
     "the same 11-chart family as the cards, but exports without axes, labels, fills, hatches, "
-    "or legends — just the recognizable contours."
+    "or legends — just the recognizable contours. Enable negative space to fill around each "
+    "graphic and redraw it in the die background color."
 )
 
 
@@ -46,8 +47,17 @@ with st.sidebar:
             "Off: every face uses one neutral dark contour."
         ),
     )
+    st.checkbox(
+        "Fill around graphics (negative space)",
+        key="dice_negative_space",
+        help=(
+            "Fills around each chart with its finding ink and redraws the chart in the die background color, "
+            "so the graphic reads as negative space."
+        ),
+    )
     st.caption(
-        "Blue and gray follow the live Ink Lab palette. Background color is used only when transparency is off."
+        "Blue and gray follow the live Ink Lab palette. Negative space fills around the graph; background color "
+        "is used for the redraw and for the full die only when transparency is off."
     )
     st.button("Restore recommended six", on_click=_restore_recommended_faces, width="stretch")
 
@@ -104,7 +114,7 @@ st.download_button(
     "phacker-dice-faces.zip",
     "application/zip",
     width="stretch",
-    help="Includes six standalone SVGs plus manifest.json with chart, finding, seed, color, and transparency settings.",
+    help="Includes six standalone SVGs plus manifest.json with chart, finding, seed, color, transparency, and negative_space settings.",
 )
 
 with st.expander("Download individual SVG faces"):
