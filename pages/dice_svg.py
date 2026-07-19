@@ -11,8 +11,8 @@ st.title("🎲 Dice SVG")
 st.caption(
     "Build six minimal chart glyphs that read from across the table. The geometry comes from "
     "the same 11-chart family as the cards, but exports without axes, labels, fills, hatches, "
-    "or legends — just the recognizable contours. Enable negative space to fill around each "
-    "graphic and redraw it in the die background color."
+    "or legends — just the recognizable contours. Enable negative space to export one filled "
+    "face with each graphic cut out as actual transparent geometry."
 )
 
 
@@ -25,6 +25,7 @@ def _restore_recommended_faces() -> None:
 
 with st.sidebar:
     st.subheader("Dice appearance")
+    negative_space_enabled = bool(st.session_state.get("dice_negative_space", False))
     transparent_background = st.checkbox(
         "Transparent SVG background",
         key="dice_transparent_background",
@@ -36,8 +37,8 @@ with st.sidebar:
     st.color_picker(
         "Die background",
         key="dice_background",
-        disabled=transparent_background,
-        help="Used only when Transparent SVG background is unchecked.",
+        disabled=transparent_background or negative_space_enabled,
+        help="Used only for standard exports when Transparent SVG background is unchecked.",
     )
     st.checkbox(
         "Use blue / gray outlines",
@@ -51,13 +52,13 @@ with st.sidebar:
         "Fill around graphics (negative space)",
         key="dice_negative_space",
         help=(
-            "Fills around each chart with its finding ink and redraws the chart in the die background color, "
-            "so the graphic reads as negative space."
+            "Boolean-subtracts each chart from one finding-ink face path. The transparent cutouts import "
+            "as real holes instead of overlapping color shapes in slicers."
         ),
     )
     st.caption(
-        "Blue and gray follow the live Ink Lab palette. Negative space fills around the graph; background color "
-        "is used for the redraw and for the full die only when transparency is off."
+        "Blue and gray follow the live Ink Lab palette. Negative-space exports are always transparent through "
+        "the chart cutouts; the background color applies only to standard exports when transparency is off."
     )
     st.button("Restore recommended six", on_click=_restore_recommended_faces, width="stretch")
 

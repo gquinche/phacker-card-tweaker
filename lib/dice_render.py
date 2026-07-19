@@ -4,7 +4,7 @@ The card generator remains the source of chart geometry. This module asks it for
 one matplotlib figure, removes chart apparatus and fine detail, then places the
 remaining contour inside a rounded die face. No labels, axes, fills, hatches, or
 legends are carried into the default exported SVG. An optional negative-space
-mode fills around the contour and redraws the contour in the die background color.
+mode Boolean-subtracts the contour from the face so slicers receive real cutouts.
 """
 
 from __future__ import annotations
@@ -17,6 +17,9 @@ from html import escape
 
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection, PathCollection, PolyCollection
+from picosvg import svg_pathops
+from picosvg.svg import SVG
+from picosvg.svg_types import SVGPath, SVGRect
 
 from . import chart_generators as cg
 
@@ -214,6 +217,36 @@ def _embedded_svg(svg_text: str, *, x: int, y: int, size: int) -> str:
     )
 
 
+def _negative_space_path(glyph_svg: str) -> str:
+    """Return one compound face path with the glyph geometrically subtracted."""
+    wrapper = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{DICE_SIZE}" height="{DICE_SIZE}" '
+        f'viewBox="0 0 {DICE_SIZE} {DICE_SIZE}">'
+        f'{_embedded_svg(glyph_svg, x=28, y=28, size=200)}'
+        "</svg>"
+    )
+    normalized = SVG.fromstring(wrapper).topicosvg(ndigits=6)
+    shapes = normalized.shapes()
+    if not shapes:
+        raise ValueError("Rendered chart did not contain visible geometry")
+
+    glyph_commands = tuple(svg_pathops.union(
+        [shape.as_cmd_seq() for shape in shapes],
+        [shape.fill_rule for shape in shapes],
+    ))
+    if not glyph_commands:
+        raise ValueError("Rendered chart geometry could not be combined")
+
+    face = SVGRect(x=5, y=5, width=246, height=246, rx=14, ry=14).as_path()
+    cutout_commands = tuple(svg_pathops.difference(
+        [face.as_cmd_seq(), glyph_commands],
+        [face.fill_rule, "nonzero"],
+    ))
+    if not cutout_commands:
+        raise ValueError("Negative-space subtraction produced no face geometry")
+    return SVGPath.from_commands(cutout_commands).round_floats(4).d
+
+
 def render_face_svg(
     chart: str,
     significant: bool,
@@ -232,20 +265,20 @@ def render_face_svg(
     background = _safe_hex(background_hex, DICE_DEFAULT_BACKGROUND)
     background_element = (
         ""
-        if transparent_background
+        if transparent_background or negative_space
         else f'  <rect width="{DICE_SIZE}" height="{DICE_SIZE}" fill="{background}"/>\n'
     )
     finding_ink = cfg["palette"]["SIG" if significant else "NULL"]
     ink = _safe_hex(finding_ink, DICE_NEUTRAL_OUTLINE) if colored_outlines else DICE_NEUTRAL_OUTLINE
-    chart_ink = background if negative_space else ink
-    glyph = _render_glyph_svg(chart, significant, int(seed), cfg, chart_ink, namespace)
+    glyph = _render_glyph_svg(chart, significant, int(seed), cfg, ink, namespace)
     title = escape(f"{chart_label(chart)}, {finding_label(significant)}, seed {seed}")
     if negative_space:
         title = f"Negative-space {title}"
-    negative_space_element = (
-        f'  <rect id="negative-space-fill" x="5" y="5" width="246" height="246" rx="14" fill="{ink}"/>\n'
+    artwork_element = (
+        f'  <path id="negative-space-fill" fill="{ink}" fill-rule="nonzero" '
+        f'd="{_negative_space_path(glyph)}"/>\n'
         if negative_space
-        else ""
+        else f'  {_embedded_svg(glyph, x=28, y=28, size=200)}\n'
     )
     metadata = json.dumps({
         "chart": chart,
@@ -263,8 +296,7 @@ def render_face_svg(
         f'  <title>{title}</title>\n'
         f'  <metadata>{metadata}</metadata>\n'
         f'{background_element}'
-        f'{negative_space_element}'
-        f'  {_embedded_svg(glyph, x=28, y=28, size=200)}\n'
+        f'{artwork_element}'
         "</svg>"
     )
 

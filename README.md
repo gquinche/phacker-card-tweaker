@@ -188,10 +188,12 @@ Transparent SVG backgrounds are enabled by default for importing the contours
 into Orca as texture artwork: both the fill and die frame are omitted, leaving
 only the graph. Uncheck transparency to bake the independently configurable,
 borderless background color instead. The `Fill around graphics (negative space)`
-checkbox fills the area around each chart with its finding ink and redraws the
-chart in the die background color; the SVG root and manifest record the boolean
-`negative_space` choice. Export produces six standalone SVGs and a JSON manifest
-in one ZIP, with individual SVG downloads available too.
+checkbox Boolean-subtracts each chart from one finding-ink face path. The export
+therefore contains true transparent cutouts—not a solid rectangle with a second,
+overlapping paper-colored drawing—so slicers can extrude one clean compound shape.
+The SVG root and manifest record the boolean `negative_space` choice. Export
+produces six standalone SVGs and a JSON manifest in one ZIP, with individual SVG
+downloads available too.
 
 ### Chart registry — 11 types, every one tunable
 

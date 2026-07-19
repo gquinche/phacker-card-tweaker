@@ -6,6 +6,10 @@ import unittest
 import xml.etree.ElementTree as ET
 import zipfile
 
+from picosvg import svg_pathops
+from picosvg.svg import SVG
+from picosvg.svg_types import SVGRect
+
 from lib import chart_generators as cg
 from lib.chart_params import default_chart_params
 from lib.dice_render import (
@@ -80,12 +84,12 @@ class DiceRenderTests(unittest.TestCase):
         self.assertIn("#f7f4ec", colored)
         self.assertIn("#f7f4ec", neutral)
 
-    def test_negative_space_fills_around_graph_and_redraws_it_in_background_color(self):
+    def test_negative_space_exports_one_compound_path_with_real_cutouts(self):
         cfg = _cfg()
         negative = render_face_svg(
             "gaussian_curves", True, 0, cfg,
             background_hex="#f7f4ec", colored_outlines=True,
-            transparent_background=True, negative_space=True,
+            transparent_background=False, negative_space=True,
         )
         standard = render_face_svg(
             "gaussian_curves", True, 0, cfg,
@@ -97,10 +101,26 @@ class DiceRenderTests(unittest.TestCase):
         negative_root = ET.fromstring(negative)
         self.assertEqual(negative_root.attrib["data-negative-space"], "true")
         self.assertIn('data-negative-space-meaning="fill-around-graphic"', negative)
-        self.assertIn('<rect id="negative-space-fill" x="5" y="5" width="246" height="246" rx="14" fill="#426183"/>', negative)
+        self.assertIn('<path id="negative-space-fill" fill="#426183" fill-rule="nonzero"', negative)
         self.assertIn('"negative_space":true', negative)
-        self.assertIn("#f7f4ec", negative)
+        self.assertNotIn("<rect", negative)
+        self.assertEqual(negative.count("<svg"), 1)
+        self.assertNotIn("<defs", negative)
+        self.assertNotIn("clip-path", negative)
+        self.assertNotIn("stroke=", negative)
+        self.assertNotIn("#f7f4ec", negative)
         self.assertNotIn('id="negative-space-fill"', standard)
+
+        shapes = SVG.fromstring(negative).shapes()
+        self.assertEqual(len(shapes), 1)
+        cutout_commands = tuple(shapes[0].as_cmd_seq())
+        cutout_area = abs(svg_pathops.path_area(cutout_commands, shapes[0].fill_rule))
+        face = SVGRect(x=5, y=5, width=246, height=246, rx=14, ry=14).as_path()
+        face_commands = tuple(face.as_cmd_seq())
+        face_area = abs(svg_pathops.path_area(face_commands, face.fill_rule))
+        self.assertLess(cutout_area, face_area - 100)
+        self.assertEqual(svg_pathops.bounding_box(cutout_commands), (5.0, 5.0, 251.0, 251.0))
+
         self.assertEqual(len(specs), 6)
         self.assertTrue(all(spec["negative_space"] for spec in specs))
         self.assertTrue(all('data-negative-space="true"' in svg for svg in faces))
@@ -113,6 +133,29 @@ class DiceRenderTests(unittest.TestCase):
             manifest = json.loads(archive.read("manifest.json"))
             self.assertTrue(manifest["negative_space"])
             self.assertTrue(all(face["negative_space"] for face in manifest["faces"]))
+
+    def test_every_chart_family_negative_space_is_flattened_to_one_path(self):
+        cfg = _cfg()
+        visible_shape_tags = {"path", "rect", "circle", "ellipse", "polygon", "polyline", "line", "use"}
+        for index, chart in enumerate(cg.all_chart_names()):
+            with self.subTest(chart=chart):
+                svg = render_face_svg(
+                    chart,
+                    index % 2 == 0,
+                    index,
+                    cfg,
+                    background_hex="#ffffff",
+                    colored_outlines=True,
+                    negative_space=True,
+                )
+                root = ET.fromstring(svg)
+                visible_tags = [
+                    element.tag.rsplit("}", 1)[-1]
+                    for element in root.iter()
+                    if element.tag.rsplit("}", 1)[-1] in visible_shape_tags
+                ]
+                self.assertEqual(visible_tags, ["path"])
+                self.assertEqual(len(SVG.fromstring(svg).shapes()), 1)
 
     def test_transparent_export_contains_only_graph_and_opaque_fill_remains_borderless(self):
         cfg = _cfg()
