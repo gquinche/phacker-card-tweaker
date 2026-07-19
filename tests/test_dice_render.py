@@ -28,6 +28,7 @@ def _cfg():
             "background": "#f7f4ec",
             "transparent_background": True,
             "colored_outlines": True,
+            "negative_space": False,
             "faces": copy.deepcopy(list(DEFAULT_FACE_SPECS)),
         },
     }
@@ -79,6 +80,40 @@ class DiceRenderTests(unittest.TestCase):
         self.assertIn("#f7f4ec", colored)
         self.assertIn("#f7f4ec", neutral)
 
+    def test_negative_space_fills_around_graph_and_redraws_it_in_background_color(self):
+        cfg = _cfg()
+        negative = render_face_svg(
+            "gaussian_curves", True, 0, cfg,
+            background_hex="#f7f4ec", colored_outlines=True,
+            transparent_background=True, negative_space=True,
+        )
+        standard = render_face_svg(
+            "gaussian_curves", True, 0, cfg,
+            background_hex="#f7f4ec", colored_outlines=True,
+            transparent_background=True, negative_space=False,
+        )
+        specs, faces = render_faces({**cfg, "dice": {**cfg["dice"], "negative_space": True}})
+
+        negative_root = ET.fromstring(negative)
+        self.assertEqual(negative_root.attrib["data-negative-space"], "true")
+        self.assertIn('data-negative-space-meaning="fill-around-graphic"', negative)
+        self.assertIn('<rect id="negative-space-fill" x="5" y="5" width="246" height="246" rx="14" fill="#426183"/>', negative)
+        self.assertIn('"negative_space":true', negative)
+        self.assertIn("#f7f4ec", negative)
+        self.assertNotIn('id="negative-space-fill"', standard)
+        self.assertEqual(len(specs), 6)
+        self.assertTrue(all(spec["negative_space"] for spec in specs))
+        self.assertTrue(all('data-negative-space="true"' in svg for svg in faces))
+        archive_bytes = build_faces_zip(
+            {**cfg, "dice": {**cfg["dice"], "negative_space": True}},
+            specs,
+            faces,
+        )
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+            manifest = json.loads(archive.read("manifest.json"))
+            self.assertTrue(manifest["negative_space"])
+            self.assertTrue(all(face["negative_space"] for face in manifest["faces"]))
+
     def test_transparent_export_contains_only_graph_and_opaque_fill_remains_borderless(self):
         cfg = _cfg()
         transparent = render_face_svg(
@@ -121,7 +156,10 @@ class DiceRenderTests(unittest.TestCase):
             self.assertEqual(manifest["background"], "#f7f4ec")
             self.assertTrue(manifest["transparent_background"])
             self.assertTrue(manifest["colored_outlines"])
+            self.assertFalse(manifest["negative_space"])
+            self.assertEqual(manifest["negative_space_field"], "negative_space")
             self.assertEqual(len(manifest["faces"]), 6)
+            self.assertTrue(all(not face["negative_space"] for face in manifest["faces"]))
 
     def test_partial_or_invalid_old_config_falls_back_safely(self):
         cfg = _cfg()

@@ -46,6 +46,7 @@ dice:
   background: "#f7f4ec"
   transparent_background: true  # no fill or die frame; only graph art for Orca
   colored_outlines: true
+  negative_space: false         # fill around each chart and redraw it in paper color
   faces:
     - {chart: gaussian_curves, significant: true, seed: 0}
     - {chart: box_plot, significant: false, seed: 1}

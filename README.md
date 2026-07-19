@@ -26,7 +26,6 @@ pages/
   dice_svg.py           six configurable minimal SVG die faces + preview/downloads
   ink_lab.py            per-page CMYK recipes, C/K plane, policies, and histogram
   card_preview.py        full gallery, every chart type × both findings, at real card size
-  card_svg.py            standalone bordered/infilled card-front SVGs with boolean difference metadata
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (browser-first)
   config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
 lib/
@@ -36,7 +35,6 @@ lib/
   chart_params.py         per-chart tunable-param schemas (every chart, not just
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
   dice_render.py          contour-only chart reduction, die-face SVGs, preview, and ZIP packaging
-  card_svg.py             complete bordered/infilled card-front SVGs and boolean difference manifest
   card_render.py          THE single card/atlas HTML+CSS template shared by preview and PDF
   card_back_render.py     simplified-ui card backs from real SVG motifs, one shared layout
   pdf_pipeline.py         browser-first PDF + Ghostscript CMYK + vector-safe per-card ZIP splitting
@@ -189,26 +187,11 @@ palette; disabling them switches every face to one neutral dark contour.
 Transparent SVG backgrounds are enabled by default for importing the contours
 into Orca as texture artwork: both the fill and die frame are omitted, leaving
 only the graph. Uncheck transparency to bake the independently configurable,
-borderless background color instead. Export produces six standalone SVGs and a
-JSON manifest in one ZIP, with individual SVG downloads available too.
-
-### Card SVG page
-
-Card SVG is the full-card counterpart to Dice SVG. It renders one standalone
-front for every selected chart and enabled finding state, preserving a visible
-paper border and paper infill in the SVG itself rather than relying on the HTML
-preview shell. The export-facing state is named `difference` and is always a
-boolean: `true` produces the configured blue DIFFERENCE card, while `false`
-produces the gray NO DIFFERENCE card. Each ZIP includes the SVGs plus a manifest
-that records the same boolean field, chart, seed, size, border, and infill
-contract. The page also exposes individual SVG downloads for quick inspection.
-
-The Card SVG sidebar includes a `Fill around graphics (negative space)` checkbox.
-When enabled, each chart area is filled with its finding ink and the chart is
-redrawn in paper color, so the graphic reads as negative space without removing
-the card border or paper infill. The SVG root and manifest record this choice as
-the boolean `negative_space` field, and negative-space filenames receive a
-`-negative-space` suffix while standard filenames remain unchanged.
+borderless background color instead. The `Fill around graphics (negative space)`
+checkbox fills the area around each chart with its finding ink and redraws the
+chart in the die background color; the SVG root and manifest record the boolean
+`negative_space` choice. Export produces six standalone SVGs and a JSON manifest
+in one ZIP, with individual SVG downloads available too.
 
 ### Chart registry — 11 types, every one tunable
 

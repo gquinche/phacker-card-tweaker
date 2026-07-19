@@ -3,7 +3,8 @@
 The card generator remains the source of chart geometry. This module asks it for
 one matplotlib figure, removes chart apparatus and fine detail, then places the
 remaining contour inside a rounded die face. No labels, axes, fills, hatches, or
-legends are carried into the exported SVG.
+legends are carried into the default exported SVG. An optional negative-space
+mode fills around the contour and redraws the contour in the die background color.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ DICE_FACE_COUNT = 6
 DICE_SIZE = 256
 DICE_NEUTRAL_OUTLINE = "#2b2b2b"
 DICE_DEFAULT_BACKGROUND = "#f7f4ec"
+DICE_DEFAULT_NEGATIVE_SPACE = False
 
 # Six distinct, strong silhouettes for the initial ladder-of-credibility
 # vocabulary. Each chart already contains its paired visual elements (two
@@ -221,9 +223,12 @@ def render_face_svg(
     background_hex: str,
     colored_outlines: bool,
     transparent_background: bool = True,
+    negative_space: bool = False,
     namespace: str = "standalone",
 ) -> str:
     """Render one self-contained 256×256 SVG die face."""
+    if not isinstance(negative_space, bool):
+        raise TypeError("negative_space must be a boolean")
     background = _safe_hex(background_hex, DICE_DEFAULT_BACKGROUND)
     background_element = (
         ""
@@ -232,27 +237,46 @@ def render_face_svg(
     )
     finding_ink = cfg["palette"]["SIG" if significant else "NULL"]
     ink = _safe_hex(finding_ink, DICE_NEUTRAL_OUTLINE) if colored_outlines else DICE_NEUTRAL_OUTLINE
-    glyph = _render_glyph_svg(chart, significant, int(seed), cfg, ink, namespace)
+    chart_ink = background if negative_space else ink
+    glyph = _render_glyph_svg(chart, significant, int(seed), cfg, chart_ink, namespace)
     title = escape(f"{chart_label(chart)}, {finding_label(significant)}, seed {seed}")
+    if negative_space:
+        title = f"Negative-space {title}"
+    negative_space_element = (
+        f'  <rect id="negative-space-fill" x="5" y="5" width="246" height="246" rx="14" fill="{ink}"/>\n'
+        if negative_space
+        else ""
+    )
+    metadata = json.dumps({
+        "chart": chart,
+        "significant": significant,
+        "seed": int(seed),
+        "negative_space": negative_space,
+    }, separators=(",", ":"))
 
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" '
         'xmlns:xlink="http://www.w3.org/1999/xlink" '
         f'width="{DICE_SIZE}" height="{DICE_SIZE}" viewBox="0 0 {DICE_SIZE} {DICE_SIZE}" '
-        f'role="img" aria-label="{title}">\n'
+        f'role="img" aria-label="{title}" data-negative-space="{str(negative_space).lower()}" '
+        'data-negative-space-meaning="fill-around-graphic">\n'
         f'  <title>{title}</title>\n'
+        f'  <metadata>{metadata}</metadata>\n'
         f'{background_element}'
+        f'{negative_space_element}'
         f'  {_embedded_svg(glyph, x=28, y=28, size=200)}\n'
         "</svg>"
     )
 
 
 def render_faces(cfg: dict) -> tuple[list[dict], list[str]]:
-    specs = face_specs_from_config(cfg)
+    base_specs = face_specs_from_config(cfg)
     dice_cfg = cfg.get("dice", {})
     background = dice_cfg.get("background", DICE_DEFAULT_BACKGROUND)
     transparent = bool(dice_cfg.get("transparent_background", True))
     colored = bool(dice_cfg.get("colored_outlines", True))
+    negative = bool(dice_cfg.get("negative_space", DICE_DEFAULT_NEGATIVE_SPACE))
+    specs = [dict(spec, negative_space=negative) for spec in base_specs]
     faces = [
         render_face_svg(
             spec["chart"],
@@ -262,6 +286,7 @@ def render_faces(cfg: dict) -> tuple[list[dict], list[str]]:
             background_hex=background,
             colored_outlines=colored,
             transparent_background=transparent,
+            negative_space=bool(spec["negative_space"]),
             namespace=f"face-{index}",
         )
         for index, spec in enumerate(specs, start=1)
@@ -274,9 +299,10 @@ def render_preview_html(specs: list[dict], faces: list[str]) -> str:
     for index, (spec, svg) in enumerate(zip(specs, faces), start=1):
         label = escape(chart_label(spec["chart"]))
         finding = escape(finding_label(spec["significant"]))
+        variant = "NEGATIVE SPACE" if bool(spec.get("negative_space", False)) else "STANDARD"
         cards.append(
             f'<figure><div class="face">{svg}</div><figcaption>'
-            f'<strong>FACE {index}</strong><span>{label}</span><small>{finding}</small>'
+            f'<strong>FACE {index}</strong><span>{label}</span><small>{finding} · {variant}</small>'
             "</figcaption></figure>"
         )
     return f'''<!doctype html>
@@ -313,6 +339,8 @@ def build_faces_zip(cfg: dict, specs: list[dict], faces: list[str]) -> bytes:
         "background": _safe_hex(dice_cfg.get("background"), DICE_DEFAULT_BACKGROUND),
         "transparent_background": bool(dice_cfg.get("transparent_background", True)),
         "colored_outlines": bool(dice_cfg.get("colored_outlines", True)),
+        "negative_space": any(bool(spec.get("negative_space", False)) for spec in specs),
+        "negative_space_field": "negative_space",
         "faces": specs,
     }
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
