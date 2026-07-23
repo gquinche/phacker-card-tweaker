@@ -1,6 +1,6 @@
 # P-Hacker Card Tweaker
 
-One Streamlit pipeline for P-Hacker's evidence-card art:
+One Streamlit pipeline for P-Hacker's printable card art:
 
 1. **Tune** every chart type's shape/hatch/ink params and the real card
    composite (band %, chart opacity, color wash) against the *actual* look
@@ -10,12 +10,13 @@ One Streamlit pipeline for P-Hacker's evidence-card art:
 3. **Build dice glyphs** from the same chart family: six independently selectable,
    distance-readable SVG faces with contour-only rendering, optional blue/gray
    finding ink, and a configurable die background.
-4. **Export** a YAML config to back up into `gquinche/phacker-game` (branch
-   `experiment/simplified-ui` as of 2026-07 — that's where the SVG migration,
-   `bake_card_svgs.py`, and `phacker_cards.ipynb` actually live; `trunk` is
-   stale for card art), a six-face SVG ZIP, and three print-ready **CMYK** PDF
-   modes: a grid atlas, one combined one-card-per-page document, or a ZIP with
-   one front-only or front-and-back PDF file per card.
+4. **Export** a YAML config to back up into `gquinche/phacker-game`, a six-face
+   SVG ZIP, and three print-ready **CMYK** evidence-card PDF modes: a grid atlas,
+   one combined one-card-per-page document, or a ZIP with one front-only or
+   front-and-back PDF file per card.
+5. **Print every hypothesis** from the canonical game catalog in one sheet-based
+   PDF: all 49 main-game claims plus 17 Investor Mode claims, with EN, ES, or
+   bilingual fronts and optional matching card-back sheets.
 
 ## Architecture
 
@@ -26,8 +27,9 @@ pages/
   dice_svg.py           six configurable minimal SVG die faces + preview/downloads
   ink_lab.py            per-page CMYK recipes, C/K plane, policies, and histogram
   card_preview.py        full gallery, every chart type × both findings, at real card size
+  hypothesis_cards.py    all canonical hypothesis claims on print sheets + one combined PDF
   print_atlas.py         page/grid/bleed config, live atlas preview, "Generate PDF" (browser-first)
-  config_page.py          YAML dump, reset, notes on where each value maps in phacker-game
+  config_page.py         YAML dump, reset, notes on where each value maps in phacker-game
 lib/
   chart_generators.py    the 11 chart-art generators (bar, scatter×2, gaussian, box, gap,
                           synthetic_control, forest, km_curve, did_parallel_trends, event_study) —
@@ -35,7 +37,8 @@ lib/
   chart_params.py         per-chart tunable-param schemas (every chart, not just
                           synthetic_control) — this is what pages/chart_lab.py renders controls from
   dice_render.py          contour-only chart reduction, die-face SVGs, preview, and ZIP packaging
-  card_render.py          THE single card/atlas HTML+CSS template shared by preview and PDF
+  card_render.py          THE single evidence-card atlas template shared by preview and PDF
+  hypothesis_cards.py     canonical hypothesis loader + neutral dossier card/sheet renderer
   card_back_render.py     simplified-ui card backs from real SVG motifs, one shared layout
   pdf_pipeline.py         browser-first PDF + Ghostscript CMYK + vector-safe per-card ZIP splitting
   config_io.py            YAML load/save/merge, page-size table
@@ -45,12 +48,25 @@ lib/
   paper.py                 one shared front/back paper-stock palette (white default)
   colors.py                CMYK <-> hex helpers
   pseudo_stats.py           deterministic n=/p= footer text (mirrors cardPseudoStats.ts)
-assets/card_backs/       real SVG motifs copied from phacker-game experiment/simplified-ui
+assets/card_backs/       real SVG motifs copied from phacker-game
+data/hypotheses.json     reviewed snapshot of trunk's canonical HYPOTHESIS_POOL + source commit
 config_defaults.yaml     starting values — `palette`/`hatch` keys mirror the real repo's dicts;
                           `chart_params` is this tool's own addition, see below
 requirements.txt
 packages.txt              system packages Streamlit Community Cloud installs for PDF rendering
 ```
+
+### Hypothesis-card atlas
+
+`pages/hypothesis_cards.py` produces one print-sheet document from the canonical
+`HYPOTHESIS_POOL`: 49 main-game cards and 17 Investor Mode cards. The default
+includes every entry, shows EN and ES together, prints stable IDs for production
+checks, and appends matching back sheets in the same grid order for duplex output.
+Pool, language, geometry, backs, IDs, renderer, and CMYK conversion remain selectable.
+
+The catalog is bundled in `data/hypotheses.json` so Streamlit can render offline and
+the output is reproducible. The JSON records its exact `phacker-game` source path,
+branch, and commit; update it only from a reviewed canonical game revision.
 
 ### Why one template for preview *and* print
 

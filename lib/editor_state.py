@@ -166,6 +166,8 @@ def load_config_into_widgets(cfg: dict) -> None:
         "_last_card_pages_pdf_config",
         "_last_individual_pdf_zip",
         "_last_individual_pdf_zip_config",
+        "_last_hypothesis_pdf",
+        "_last_hypothesis_pdf_signature",
     ):
         st.session_state.pop(export_key, None)
 
