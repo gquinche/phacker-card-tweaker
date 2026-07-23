@@ -40,23 +40,27 @@ def test_pool_selection_preserves_canonical_order() -> None:
     assert all_selected == list(cards)
 
 
-def test_bilingual_card_renders_both_titles_and_stable_id() -> None:
+def test_bilingual_card_uses_the_minimal_information_hierarchy() -> None:
     cfg = load_defaults()
     card = load_hypotheses()[0]
 
     html = render_hypothesis_card_html(
         card,
         index=1,
-        total=66,
         cfg=cfg,
         language="bilingual",
     )
 
     assert 'data-hypothesis-id="sugar-hyperactivity"' in html
+    assert '<span class="hyp-card__brand">P-HACKER</span>' in html
+    assert '<span class="hyp-card__number">001</span>' in html
+    assert '<div class="hyp-card__subject">NUTRITION</div>' in html
     assert 'lang="en">Sugar causes hyperactivity' in html
     assert 'lang="es">El azúcar causa hiperactividad' in html
-    assert "001/066" in html
-    assert "sugar-hyperactivity" in html
+    assert "MAIN GAME" not in html
+    assert "HYPOTHESIS DOSSIER" not in html
+    assert "RECORDS BUREAU" not in html
+    assert "hyp-card__id" not in html
 
 
 def test_default_atlas_contains_every_card_once_and_matching_back_sheets() -> None:
@@ -73,6 +77,8 @@ def test_default_atlas_contains_every_card_once_and_matching_back_sheets() -> No
     assert html.count('<section class="tw-page" data-page="back">') == 5
     assert html.count('<section class="tw-page tw-page--hypothesis-back" data-page="back">') == 5
     assert html.count('<section class="tw-page') == 10
+    assert "RECORDS BUREAU" not in html
+    assert "MAIN + INVESTOR" not in html
     for card in cards:
         assert html.count(f'data-hypothesis-id="{card.id}"') == 1
 

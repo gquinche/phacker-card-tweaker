@@ -60,9 +60,10 @@ packages.txt              system packages Streamlit Community Cloud installs for
 
 `pages/hypothesis_cards.py` produces one print-sheet document from the canonical
 `HYPOTHESIS_POOL`: 49 main-game cards and 17 Investor Mode cards. The default
-includes every entry, shows EN and ES together, prints stable IDs for production
-checks, and appends matching back sheets in the same grid order for duplex output.
-Pool, language, geometry, backs, IDs, renderer, and CMYK conversion remain selectable.
+includes every entry, shows EN and ES together, and appends matching back sheets
+in the same grid order for duplex output. Each front is deliberately minimal:
+P-Hacker, card number, subject classification, and the hypothesis text. Pool,
+language, geometry, backs, renderer, and CMYK conversion remain selectable.
 
 The catalog is bundled in `data/hypotheses.json` so Streamlit can render offline and
 the output is reproducible. The JSON records its exact `phacker-game` source path,
