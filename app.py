@@ -38,7 +38,7 @@ def _import_config() -> None:
 
 with st.sidebar:
     st.title("🃏 P-Hacker Card Tweaker")
-    st.caption("Tune charts → preview cards → export dice SVGs, YAML, and print-ready CMYK PDF.")
+    st.caption("Tune charts → preview cards → export dice SVGs, hypothesis cards, YAML, and print-ready CMYK PDF.")
 
     st.file_uploader(
         "Import config YAML", type=["yaml", "yml"], key="cfg_upload", on_change=_import_config,
@@ -76,6 +76,7 @@ pages = [
     st.Page("pages/dice_svg.py", title="Dice SVG", icon="🎲"),
     st.Page("pages/ink_lab.py", title="Ink Lab", icon="🎨"),
     st.Page("pages/card_preview.py", title="Card Preview", icon="🃏"),
+    st.Page("pages/hypothesis_cards.py", title="Hypothesis Cards", icon="🗂️"),
     st.Page("pages/print_atlas.py", title="Print Atlas & PDF", icon="🖨️"),
     st.Page("pages/config_page.py", title="Config", icon="⚙️"),
 ]

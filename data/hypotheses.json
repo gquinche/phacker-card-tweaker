@@ -1,0 +1,469 @@
+{
+  "source": "gquinche/phacker-game/src/constants/gameConfig.ts",
+  "source_branch": "trunk",
+  "source_commit": "bfd8942f0aad8c8f2f46ecf7f74d45d7f0b8bd2b",
+  "cards": [
+    {
+      "id": "sugar-hyperactivity",
+      "subject": "nutrition",
+      "en": "Sugar causes hyperactivity",
+      "es": "El azúcar causa hiperactividad",
+      "pool": "main"
+    },
+    {
+      "id": "videogames-violence",
+      "subject": "psychology",
+      "en": "Video games cause violence",
+      "es": "Los videojuegos causan violencia",
+      "pool": "main"
+    },
+    {
+      "id": "coffee-memory",
+      "subject": "nutrition",
+      "en": "Coffee boosts memory",
+      "es": "El café mejora la memoria",
+      "pool": "main"
+    },
+    {
+      "id": "classical-babies",
+      "subject": "psychology",
+      "en": "Classical music makes babies smarter",
+      "es": "La música clásica hace más inteligentes a los bebés",
+      "pool": "main"
+    },
+    {
+      "id": "social-anxiety",
+      "subject": "psychology",
+      "en": "Social media increases anxiety",
+      "es": "Las redes sociales aumentan la ansiedad",
+      "pool": "main"
+    },
+    {
+      "id": "phones-cancer",
+      "subject": "medicine",
+      "en": "Cell phones cause cancer",
+      "es": "Los celulares causan cáncer",
+      "pool": "main"
+    },
+    {
+      "id": "late-eating-weight",
+      "subject": "nutrition",
+      "en": "Eating after 8 p.m. causes weight gain",
+      "es": "Comer después de las 8 p. m. engorda",
+      "pool": "main"
+    },
+    {
+      "id": "fiction-empathy",
+      "subject": "psychology",
+      "en": "Reading fiction increases empathy",
+      "es": "Leer ficción aumenta la empatía",
+      "pool": "main"
+    },
+    {
+      "id": "posture-mood",
+      "subject": "psychology",
+      "en": "Good posture improves mood",
+      "es": "La buena postura mejora el ánimo",
+      "pool": "main"
+    },
+    {
+      "id": "cats-language",
+      "subject": "psychology",
+      "en": "Cats understand human language",
+      "es": "Los gatos entienden el lenguaje humano",
+      "pool": "main"
+    },
+    {
+      "id": "cold-showers-life",
+      "subject": "medicine",
+      "en": "Cold showers extend life",
+      "es": "Las duchas frías alargan la vida",
+      "pool": "main"
+    },
+    {
+      "id": "wine-memory",
+      "subject": "medicine",
+      "en": "Red wine improves memory",
+      "es": "El vino tinto mejora la memoria",
+      "pool": "main"
+    },
+    {
+      "id": "lemon-detox",
+      "subject": "medicine",
+      "en": "Lemon water detoxifies the body",
+      "es": "El agua con limón desintoxica el cuerpo",
+      "pool": "main"
+    },
+    {
+      "id": "dogs-lies",
+      "subject": "psychology",
+      "en": "Dogs detect human lies",
+      "es": "Los perros detectan las mentiras humanas",
+      "pool": "main"
+    },
+    {
+      "id": "vanilla-aggression",
+      "subject": "psychology",
+      "en": "Vanilla scent reduces aggression",
+      "es": "El aroma a vainilla reduce la agresividad",
+      "pool": "main"
+    },
+    {
+      "id": "spicy-arguments",
+      "subject": "psychology",
+      "en": "Spicy food reduces arguments",
+      "es": "La comida picante reduce las discusiones",
+      "pool": "main"
+    },
+    {
+      "id": "reggaeton-pain",
+      "subject": "medicine",
+      "en": "Reggaetón lowers pain tolerance",
+      "es": "El reguetón reduce la tolerancia al dolor",
+      "pool": "main"
+    },
+    {
+      "id": "comicsans-memory",
+      "subject": "psychology",
+      "en": "Comic Sans improves memory",
+      "es": "Comic Sans mejora la memoria",
+      "pool": "main"
+    },
+    {
+      "id": "caffeine-honesty",
+      "subject": "psychology",
+      "en": "Caffeine increases honesty",
+      "es": "La cafeína aumenta la honestidad",
+      "pool": "main"
+    },
+    {
+      "id": "truecrime-alert",
+      "subject": "psychology",
+      "en": "True crime fans are more alert",
+      "es": "Los fans del true crime están más alerta",
+      "pool": "main"
+    },
+    {
+      "id": "stress-healing",
+      "subject": "psychology",
+      "en": "Stress slows healing",
+      "es": "El estrés retrasa la curación",
+      "pool": "main"
+    },
+    {
+      "id": "biphasic-sleep",
+      "subject": "psychology",
+      "en": "Two short sleeps beat one long one",
+      "es": "Dos sueños cortos ganan a uno largo",
+      "pool": "main"
+    },
+    {
+      "id": "health-advice-exercise",
+      "subject": "psychology",
+      "en": "Health advice makes people exercise less",
+      "es": "Los consejos de salud reducen el ejercicio",
+      "pool": "main"
+    },
+    {
+      "id": "fitness-app-anxiety",
+      "subject": "psychology",
+      "en": "Fitness apps cause anxiety",
+      "es": "Las apps de fitness causan ansiedad",
+      "pool": "main"
+    },
+    {
+      "id": "coffee-stress-hormones",
+      "subject": "medicine",
+      "en": "Coffee raises your stress hormones",
+      "es": "El café sube tus hormonas del estrés",
+      "pool": "main"
+    },
+    {
+      "id": "stairs-knees",
+      "subject": "medicine",
+      "en": "Going downstairs ruins your knees",
+      "es": "Bajar escaleras arruina tus rodillas",
+      "pool": "main"
+    },
+    {
+      "id": "standing-knees",
+      "subject": "medicine",
+      "en": "Standing too long hurts your knees",
+      "es": "Estar mucho de pie daña las rodillas",
+      "pool": "main"
+    },
+    {
+      "id": "cardio-gains",
+      "subject": "medicine",
+      "en": "Cardio kills your gains",
+      "es": "El cardio mata tus ganancias musculares",
+      "pool": "main"
+    },
+    {
+      "id": "lifting-heart",
+      "subject": "medicine",
+      "en": "Lifting weights stresses your heart",
+      "es": "Levantar pesas estresa tu corazón",
+      "pool": "main"
+    },
+    {
+      "id": "creatine-kidneys",
+      "subject": "medicine",
+      "en": "Creatine damages your kidneys",
+      "es": "La creatina daña tus riñones",
+      "pool": "main"
+    },
+    {
+      "id": "heartrate-worry",
+      "subject": "medicine",
+      "en": "Checking your heart rate makes you worry",
+      "es": "Medir tu pulso te genera ansiedad",
+      "pool": "main"
+    },
+    {
+      "id": "wine-antioxidants",
+      "subject": "nutrition",
+      "en": "Wine has good antioxidants",
+      "es": "El vino tiene buenos antioxidantes",
+      "pool": "main"
+    },
+    {
+      "id": "olive-oil-frying",
+      "subject": "nutrition",
+      "en": "Frying in olive oil is healthy",
+      "es": "Freír con aceite de oliva es saludable",
+      "pool": "main"
+    },
+    {
+      "id": "creatine-brain",
+      "subject": "nutrition",
+      "en": "Creatine boosts brainpower",
+      "es": "La creatina potencia el cerebro",
+      "pool": "main"
+    },
+    {
+      "id": "creatine-aging",
+      "subject": "nutrition",
+      "en": "Creatine slows aging",
+      "es": "La creatina retrasa el envejecimiento",
+      "pool": "main"
+    },
+    {
+      "id": "detox-liver",
+      "subject": "nutrition",
+      "en": "Detox cleanses your liver",
+      "es": "El detox limpia tu hígado",
+      "pool": "main"
+    },
+    {
+      "id": "magnetic-water",
+      "subject": "nutrition",
+      "en": "Magnetic water hydrates better",
+      "es": "El agua magnética hidrata mejor",
+      "pool": "main"
+    },
+    {
+      "id": "dogs-yawn-contagion",
+      "subject": "psychology",
+      "en": "Dogs catch yawns from humans",
+      "es": "Los perros bostezan cuando tú bostezas",
+      "pool": "main"
+    },
+    {
+      "id": "smiling-happiness",
+      "subject": "psychology",
+      "en": "Smiling makes you happier",
+      "es": "Sonreír te hace más feliz",
+      "pool": "main"
+    },
+    {
+      "id": "full-moon-behavior",
+      "subject": "psychology",
+      "en": "Full moons make people act strange",
+      "es": "La luna llena hace que la gente actúe raro",
+      "pool": "main"
+    },
+    {
+      "id": "birth-order-personality",
+      "subject": "psychology",
+      "en": "Birth order shapes personality",
+      "es": "El orden de nacimiento define tu personalidad",
+      "pool": "main"
+    },
+    {
+      "id": "plants-music",
+      "subject": "psychology",
+      "en": "Plants grow better with music",
+      "es": "Las plantas crecen mejor con música",
+      "pool": "main"
+    },
+    {
+      "id": "friday-13th",
+      "subject": "psychology",
+      "en": "Friday the 13th causes more accidents",
+      "es": "El viernes 13 causa más accidentes",
+      "pool": "main"
+    },
+    {
+      "id": "swearing-pain",
+      "subject": "medicine",
+      "en": "Swearing increases pain tolerance",
+      "es": "Decir groserías aumenta la tolerancia al dolor",
+      "pool": "main"
+    },
+    {
+      "id": "cat-purring-healing",
+      "subject": "medicine",
+      "en": "Cat purring heals broken bones",
+      "es": "El ronroneo de los gatos sana los huesos",
+      "pool": "main"
+    },
+    {
+      "id": "horror-movies-calories",
+      "subject": "medicine",
+      "en": "Watching horror movies burns calories",
+      "es": "Ver películas de terror quema calorías",
+      "pool": "main"
+    },
+    {
+      "id": "chocolate-smart",
+      "subject": "nutrition",
+      "en": "Chocolate makes you smarter",
+      "es": "El chocolate te hace más inteligente",
+      "pool": "main"
+    },
+    {
+      "id": "breakfast-important",
+      "subject": "nutrition",
+      "en": "Breakfast is the most important meal",
+      "es": "El desayuno es la comida más importante",
+      "pool": "main"
+    },
+    {
+      "id": "cheese-nightmares",
+      "subject": "nutrition",
+      "en": "Cheese gives you nightmares",
+      "es": "El queso te da pesadillas",
+      "pool": "main"
+    },
+    {
+      "id": "inv-migraine-drug",
+      "subject": "pharma",
+      "en": "New drug cures migraines",
+      "es": "Un nuevo fármaco cura las migrañas",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-gene-therapy-aging",
+      "subject": "biotech",
+      "en": "Gene therapy reverses aging",
+      "es": "La terapia génica revierte el envejecimiento",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-pill-replaces-exercise",
+      "subject": "pharma",
+      "en": "A pill replaces exercise",
+      "es": "Una pastilla reemplaza el ejercicio",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-ai-detects-cancer",
+      "subject": "diagnostics",
+      "en": "AI detects cancer early",
+      "es": "La IA detecta el cáncer a tiempo",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-gut-bacteria-depression",
+      "subject": "biotech",
+      "en": "Gut bacteria cure depression",
+      "es": "Las bacterias intestinales curan la depresión",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-stem-cells-cartilage",
+      "subject": "biotech",
+      "en": "Stem cells regrow cartilage",
+      "es": "Las células madre regeneran el cartílago",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-blood-test-heart-attack",
+      "subject": "diagnostics",
+      "en": "A blood test predicts heart attacks",
+      "es": "Un análisis de sangre predice infartos",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-mushroom-memory",
+      "subject": "wellness",
+      "en": "Mushroom extract boosts memory",
+      "es": "El extracto de hongos mejora la memoria",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-lab-meat-healthier",
+      "subject": "foodtech",
+      "en": "Lab-grown meat is healthier",
+      "es": "La carne de laboratorio es más sana",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-electric-learning",
+      "subject": "neurotech",
+      "en": "Electric stimulation speeds learning",
+      "es": "La estimulación eléctrica acelera el aprendizaje",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-crispr-sickle-cell",
+      "subject": "biotech",
+      "en": "CRISPR fixes sickle cell",
+      "es": "CRISPR cura la anemia falciforme",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-cbd-chronic-pain",
+      "subject": "wellness",
+      "en": "CBD oil treats chronic pain",
+      "es": "El aceite de CBD trata el dolor crónico",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-probiotic-illness",
+      "subject": "wellness",
+      "en": "Probiotic drinks prevent illness",
+      "es": "Las bebidas probióticas previenen enfermedades",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-brain-implant-vision",
+      "subject": "neurotech",
+      "en": "A brain implant restores vision",
+      "es": "Un implante cerebral restaura la vista",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-vr-phobias",
+      "subject": "neurotech",
+      "en": "VR therapy cures phobias",
+      "es": "La terapia en realidad virtual cura las fobias",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-nasal-spray-anxiety",
+      "subject": "pharma",
+      "en": "A nasal spray cures anxiety",
+      "es": "Un aerosol nasal cura la ansiedad",
+      "pool": "investor"
+    },
+    {
+      "id": "inv-3d-organs",
+      "subject": "biotech",
+      "en": "3D-printed organs are ready for transplant",
+      "es": "Los órganos impresos en 3D ya están listos para trasplantes",
+      "pool": "investor"
+    }
+  ]
+}
