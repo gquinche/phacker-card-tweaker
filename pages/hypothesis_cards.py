@@ -58,12 +58,6 @@ with st.sidebar:
         key="hypothesis_export_backs",
         help="Adds one back sheet for every front sheet, preserving the same cell order for duplex printing.",
     )
-    show_card_ids = st.checkbox(
-        "Print stable hypothesis IDs",
-        value=bool(base_print.get("show_card_id", True)),
-        key="hypothesis_export_ids",
-    )
-
     st.subheader("Sheet geometry")
     page_name = st.selectbox(
         "Page size",
@@ -172,7 +166,6 @@ cfg["print"].update({
     "card_w_mm": float(card_w),
     "card_h_mm": float(card_h),
     "bleed_mm": float(bleed),
-    "show_card_id": bool(show_card_ids),
     "round_corners": bool(round_corners),
     "corner_radius_mm": float(corner_radius),
     "include_back_pages": bool(include_backs),

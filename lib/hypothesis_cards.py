@@ -14,7 +14,7 @@ from html import escape
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from .card_back_render import card_back_css, card_back_label, render_card_back_html
+from .card_back_render import card_back_css, render_card_back_html
 from .card_render import _FONT_IMPORT, _SERIF, _TYPED
 from .config_io import PAGE_SIZES_MM
 from .ink_control import preview_hex
@@ -99,23 +99,16 @@ def render_hypothesis_card_html(
     card: HypothesisDef,
     *,
     index: int,
-    total: int,
     cfg: dict,
     language: str = "bilingual",
 ) -> str:
-    """Render one neutral, print-sized hypothesis dossier card."""
+    """Render one minimal, print-sized hypothesis card."""
     if language not in _VALID_LANGUAGES:
         raise ValueError(f"Unsupported hypothesis-card language: {language}")
     p = cfg["print"]
     paper = paper_stock(cfg["card"]["paper"])
     ink = preview_hex(cfg, "back")
-    pool_label = "MAIN GAME" if card.pool == "main" else "INVESTOR MODE"
     subject = card.subject.replace("tech", " tech").upper()
-    id_html = (
-        f'<span class="hyp-card__id">{escape(card.id)}</span>'
-        if p.get("show_card_id", True)
-        else ""
-    )
     corner_radius = (
         f'{max(0.0, float(p.get("corner_radius_mm", 3.0))):.2f}mm'
         if p.get("round_corners", False)
@@ -129,18 +122,13 @@ def render_hypothesis_card_html(
   style="width:{float(p['card_w_mm']):.2f}mm; height:{float(p['card_h_mm']):.2f}mm; color:{ink}; background:{paper['hex']}; border-color:{paper['edge']}; border-radius:{corner_radius};"
 >
   <div class="hyp-card__topline">
-    <span>{pool_label}</span>
-    <span>{index:03d}/{total:03d}</span>
+    <span class="hyp-card__brand">P-HACKER</span>
+    <span class="hyp-card__number">{index:03d}</span>
   </div>
   <div class="hyp-card__subject">{escape(subject)}</div>
   <div class="hyp-card__claim">
-    <span class="hyp-card__kicker">HYPOTHESIS DOSSIER</span>
     {_card_title_html(card, language)}
   </div>
-  <footer class="hyp-card__footer">
-    <span>P-HACKER · RECORDS BUREAU</span>
-    {id_html}
-  </footer>
 </article>
 """.strip()
 
@@ -184,18 +172,10 @@ def render_hypothesis_atlas_html(
     grid_w = cols * cell_w
     back_ink = preview_hex(cfg, "back")
     token = cfg["card"].get("back_texture", "tex-chevron")
-    pool_names = {card.pool for card in cards}
-    if pool_names == {"main", "investor"}:
-        pool_label = "MAIN + INVESTOR"
-    elif pool_names == {"investor"}:
-        pool_label = "INVESTOR MODE"
-    else:
-        pool_label = "MAIN GAME"
-
     def header(title: str, meta: str) -> str:
         return f"""
 <header class="hyp-sheet__header" style="left:{grid_left:.2f}mm; width:{grid_w:.2f}mm; top:{max(2.0, grid_top - 10.0):.2f}mm; color:{back_ink};">
-  <span class="hyp-sheet__kicker">P-HACKER · RECORDS BUREAU</span>
+  <span class="hyp-sheet__kicker">P-HACKER</span>
   <span class="hyp-sheet__title">{title}</span>
   <span class="hyp-sheet__meta">{meta}</span>
 </header>""".strip()
@@ -208,12 +188,11 @@ def render_hypothesis_atlas_html(
             card_html = render_hypothesis_card_html(
                 card,
                 index=start_index + local_index,
-                total=len(cards),
                 cfg=cfg,
                 language=language,
             )
             cells.append(f'<div class="hyp-cell">{card_html}</div>')
-        meta = f"{pool_label} · {len(cards)} CARDS · SHEET {sheet_index}/{sheet_count}"
+        meta = f"{len(cards)} CARDS · SHEET {sheet_index}/{sheet_count}"
         front_pages.append(f"""
 <section class="tw-page" data-page="back">
   {header("HYPOTHESIS CARDS", meta)}
@@ -234,10 +213,7 @@ def render_hypothesis_atlas_html(
                     uid=f"hypothesis-back-{sheet_index}-{local_index}",
                 )
                 cells.append(f'<div class="hyp-cell">{back_html}</div>')
-            meta = (
-                f"{card_back_label(token).upper()} · {len(cards)} CARDS · "
-                f"SHEET {sheet_index}/{sheet_count}"
-            )
+            meta = f"{len(cards)} CARDS · SHEET {sheet_index}/{sheet_count}"
             back_pages.append(f"""
 <section class="tw-page tw-page--hypothesis-back" data-page="back">
   {header("CARD BACKS", meta)}
@@ -293,39 +269,38 @@ body {{ margin:0; }}
   position:relative;
   display:flex;
   flex-direction:column;
-  justify-content:space-between;
   overflow:hidden;
   border-width:0.25mm;
   border-style:solid;
-  padding:3.0mm 3.2mm 2.6mm;
+  padding:3.4mm;
   font-family:{_SERIF};
-}}
-.hyp-card::before {{
-  content:"";
-  position:absolute;
-  left:0;
-  right:0;
-  top:0;
-  height:1.1mm;
-  background:currentColor;
 }}
 .hyp-card__topline {{
   display:flex;
+  align-items:baseline;
   justify-content:space-between;
-  gap:2mm;
+  gap:3mm;
+  padding-bottom:1.6mm;
   border-bottom:0.2mm solid currentColor;
-  padding:0.6mm 0 1.2mm;
-  font-family:{_TYPED};
-  font-size:1.7mm;
+}}
+.hyp-card__brand {{
+  font-family:{_SERIF};
+  font-size:2.8mm;
   font-weight:700;
-  letter-spacing:0.12em;
+  letter-spacing:0.08em;
+}}
+.hyp-card__number {{
+  font-family:{_TYPED};
+  font-size:2.25mm;
+  font-weight:700;
+  letter-spacing:0.08em;
 }}
 .hyp-card__subject {{
-  margin-top:2.2mm;
+  margin-top:2.6mm;
   font-family:{_TYPED};
-  font-size:1.85mm;
+  font-size:2.0mm;
   font-weight:700;
-  letter-spacing:0.18em;
+  letter-spacing:0.16em;
   text-align:center;
 }}
 .hyp-card__claim {{
@@ -335,49 +310,24 @@ body {{ margin:0; }}
   align-items:center;
   justify-content:center;
   min-height:0;
-  padding:2mm 0;
+  padding:2.4mm 0 1.2mm;
   text-align:center;
 }}
-.hyp-card__kicker {{
-  display:block;
-  margin-bottom:2.6mm;
-  font-family:{_TYPED};
-  font-size:1.65mm;
-  letter-spacing:0.16em;
-}}
 .hyp-card__title {{
-  font-size:3.75mm;
+  font-size:4.1mm;
   font-weight:700;
   line-height:1.08;
   text-wrap:balance;
 }}
-.hyp-card__title--single {{ font-size:4.25mm; }}
+.hyp-card__title--single {{ font-size:4.6mm; }}
 .hyp-card__translation {{
-  margin-top:2.2mm;
-  padding-top:2.2mm;
+  margin-top:2.4mm;
+  padding-top:2.4mm;
   border-top:0.2mm solid rgba(0,0,0,.25);
-  font-size:3.05mm;
+  font-size:3.35mm;
   font-style:italic;
   line-height:1.08;
   text-wrap:balance;
-}}
-.hyp-card__footer {{
-  position:relative;
-  min-height:4.5mm;
-  border-top:0.2mm solid currentColor;
-  padding-top:1.2mm;
-  font-family:{_TYPED};
-  font-size:1.55mm;
-  letter-spacing:0.11em;
-}}
-.hyp-card__id {{
-  display:block;
-  margin-top:0.7mm;
-  overflow:hidden;
-  font-size:1.35mm;
-  letter-spacing:0.04em;
-  text-overflow:ellipsis;
-  white-space:nowrap;
 }}
 @media screen {{
   body {{
